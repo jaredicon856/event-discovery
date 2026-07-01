@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { ContactRecord, EventRecord } from "@/types/event";
+import { ContactsModal } from "@/components/ContactsModal";
 
 const TIER_STYLES: Record<string, string> = {
   A: "bg-emerald-900/40 text-emerald-300 border-emerald-700",
@@ -32,7 +33,7 @@ export function EventsTable({
   const [enriching, setEnriching] = useState<Record<string, boolean>>({});
   const [contactsByEvent, setContactsByEvent] = useState<Record<string, ContactRecord[]>>(initialContacts);
   const [attempted, setAttempted] = useState<Record<string, boolean>>({});
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [openEventId, setOpenEventId] = useState<string | null>(null);
 
   async function enrich(eventId: string) {
     setEnriching((s) => ({ ...s, [eventId]: true }));
@@ -49,7 +50,7 @@ export function EventsTable({
           ...s,
           [eventId]: [...(s[eventId] ?? []), ...json.contacts],
         }));
-        setExpanded((s) => ({ ...s, [eventId]: true }));
+        setOpenEventId(eventId);
       }
     } finally {
       setEnriching((s) => ({ ...s, [eventId]: false }));
@@ -63,6 +64,8 @@ export function EventsTable({
       </div>
     );
   }
+
+  const openEvent = events.find((e) => e.id === openEventId);
 
   return (
     <div className="overflow-x-auto rounded-lg border border-zinc-800">
@@ -84,7 +87,6 @@ export function EventsTable({
         <tbody className="divide-y divide-zinc-800">
           {events.map((event) => {
             const contacts = contactsByEvent[event.id] ?? [];
-            const isExpanded = expanded[event.id];
             return (
               <tr key={event.id} className="align-top hover:bg-zinc-900/50">
                 <td className="max-w-xs px-4 py-3 font-medium text-zinc-200">{event.event_name}</td>
@@ -129,7 +131,7 @@ export function EventsTable({
                     "—"
                   )}
                 </td>
-                <td className="px-4 py-3 min-w-[220px]">
+                <td className="px-4 py-3 min-w-[180px]">
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => enrich(event.id)}
@@ -143,48 +145,27 @@ export function EventsTable({
                     )}
                     {contacts.length > 0 && (
                       <button
-                        onClick={() => setExpanded((s) => ({ ...s, [event.id]: !s[event.id] }))}
+                        onClick={() => setOpenEventId(event.id)}
                         className="text-xs text-sky-400 hover:underline"
                       >
-                        {isExpanded ? "Hide" : "Show"} {contacts.length} contact{contacts.length > 1 ? "s" : ""}
+                        View {contacts.length} contact{contacts.length > 1 ? "s" : ""}
                       </button>
                     )}
                   </div>
-                  {isExpanded && contacts.length > 0 && (
-                    <ul className="mt-2 flex flex-col gap-1.5">
-                      {contacts.map((c) => (
-                        <li key={c.id ?? `${c.name}-${c.email}`} className="text-xs text-zinc-400">
-                          <span className="font-medium text-zinc-200">{c.name ?? "Unnamed contact"}</span>
-                          {c.title && <span className="text-zinc-500"> — {c.title}</span>}
-                          <div className="flex flex-wrap gap-x-2 text-zinc-500">
-                            {c.email && (
-                              <a href={`mailto:${c.email}`} className="text-sky-400 hover:underline">
-                                {c.email}
-                              </a>
-                            )}
-                            {c.phone && <span>{c.phone}</span>}
-                            {c.linkedin_url && (
-                              <a
-                                href={normalizeUrl(c.linkedin_url)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-sky-400 hover:underline"
-                              >
-                                LinkedIn
-                              </a>
-                            )}
-                            {c.confidence && <span className="italic">({c.confidence} confidence)</span>}
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
                 </td>
               </tr>
             );
           })}
         </tbody>
       </table>
+
+      {openEvent && (
+        <ContactsModal
+          eventName={openEvent.event_name}
+          contacts={contactsByEvent[openEvent.id] ?? []}
+          onClose={() => setOpenEventId(null)}
+        />
+      )}
     </div>
   );
 }

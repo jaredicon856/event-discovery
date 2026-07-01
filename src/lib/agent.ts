@@ -234,12 +234,12 @@ export async function findEventContacts(params: {
 
   const research = await client.messages.create({
     model: MODEL,
-    max_tokens: 2048,
+    max_tokens: 3072,
     tools: [
       {
         type: "web_search_20250305",
         name: "web_search",
-        max_uses: 5,
+        max_uses: 10,
       } as Anthropic.Messages.WebSearchTool20250305,
     ],
     messages: [
@@ -249,17 +249,32 @@ export async function findEventContacts(params: {
 ${sourceUrl ? `Source URL: ${sourceUrl}` : ""}
 ${bookingPath ? `Known booking path: ${bookingPath}` : ""}
 
-Prioritize a NAMED individual: the event organizer, founder/CEO, program/content director, speaker
-relations contact, or CFP coordinator. A named person with a title is far more useful than a generic
-company phone number or a "submit here" portal link with no human attached.
+Goal, in priority order:
+1. A DIRECT EMAIL ADDRESS for a named individual (organizer, founder/CEO, program/content director,
+   speaker relations contact, or CFP coordinator).
+2. A DIRECT PHONE NUMBER for that same named individual.
+3. If no direct email/phone for a named person exists, a named individual's LinkedIn profile.
+4. Only as a last resort — no named individual found at all — a generic org contact (main phone
+   line, info@ email, a speaker-application portal with no person attached).
 
-Only fall back to a generic org contact (main phone line, info@ email, a speaker-application portal
-with no named contact) if you cannot find any named individual at all — and even then, only include it
-if it's the only lead available, not alongside a named contact.
+Do not stop after one search. Actively check multiple places before giving up on finding an email
+or phone for a named person:
+- The event/organization's "About," "Team," "Staff," or "Contact" page
+- Press releases or media kits (often list a named PR/media contact with direct email)
+- The named organizer's personal website, bio page, or speaker page (often lists email)
+- If you find a name and a company domain but no published email, note the likely email pattern
+  (e.g. firstname@company.com) ONLY if that pattern is confirmed elsewhere on the same domain for
+  other staff — mark this as "low" confidence and say in the notes that it's an inferred pattern,
+  never fabricate without at least one confirmed example.
 
-Report any name, title, email address, phone number, or LinkedIn URL you find, and note how confident
-you are in each (high = directly published contact info, medium = inferred from role/org, low = generic
-org contact only). Only report information you actually found.`,
+Only fall back to a generic org contact if you truly cannot find any named individual — and even
+then, only include it if it's the only lead available, not alongside a named contact.
+
+Report every name, title, email address, phone number, and LinkedIn URL you find, and rate your
+confidence in each (high = directly published contact info for a named person, medium = named
+person but contact info inferred/pattern-matched, low = generic org contact only). Only report
+information you actually found or reasonably inferred as described above — never invent an email
+or phone number.`,
       },
     ],
   });

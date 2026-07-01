@@ -3,7 +3,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase";
 import { findEventContacts } from "@/lib/agent";
 import { assertCronAuthorized, UnauthorizedError } from "@/lib/auth";
 
-export const maxDuration = 120;
+export const maxDuration = 240;
 
 export async function POST(request: NextRequest) {
   try {
