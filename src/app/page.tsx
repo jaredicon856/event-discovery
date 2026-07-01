@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { getSupabaseServiceClient } from "@/lib/supabase";
 import { applyEventFilters, eventsBaseQuery, parseFilters } from "@/lib/filters";
 import { FilterBar } from "@/components/FilterBar";
@@ -59,18 +60,21 @@ export default async function Home({
   const exportHref = `/api/export?${usp.toString()}`;
 
   return (
-    <div className="min-h-screen bg-black px-6 py-10 text-zinc-100 sm:px-10">
+    <div className="min-h-screen bg-icon-background px-6 py-10 text-icon-text sm:px-10">
       <div className="mx-auto flex max-w-7xl flex-col gap-6">
         <header className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold">Event Scout</h1>
-            <p className="text-sm text-zinc-500">
-              Speaking &amp; networking opportunity database — discovered and enriched by AI agents.
-            </p>
+          <div className="flex items-center gap-4">
+            <Image src="/brand/icon-logo.webp" alt="Project ICON" width={140} height={50} priority />
+            <div>
+              <h1 className="text-2xl font-semibold">Event Scout</h1>
+              <p className="text-sm text-icon-text-light">
+                Speaking &amp; networking opportunity database — discovered and enriched by AI agents.
+              </p>
+            </div>
           </div>
           <a
             href={exportHref}
-            className="rounded border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-200 hover:bg-zinc-900"
+            className="rounded border border-icon-primary px-4 py-2 text-sm font-medium text-icon-primary hover:bg-icon-primary-light"
           >
             Export filtered CSV
           </a>

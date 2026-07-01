@@ -34,7 +34,7 @@ export function SchedulesPanel({ schedules }: { schedules: DiscoveryScheduleReco
 
   if (schedules.length === 0) {
     return (
-      <div className="rounded-lg border border-zinc-800 p-4 text-sm text-zinc-500">
+      <div className="rounded-lg border border-icon-border p-4 text-sm text-icon-text-light">
         No scheduled searches yet. Check &quot;Repeat this search daily&quot; above when running a
         discovery to save it here.
       </div>
@@ -42,22 +42,22 @@ export function SchedulesPanel({ schedules }: { schedules: DiscoveryScheduleReco
   }
 
   return (
-    <div className="rounded-lg border border-zinc-800 p-4">
-      <h2 className="mb-3 text-sm font-semibold text-zinc-300">
-        Scheduled searches <span className="font-normal text-zinc-500">(run daily via cron)</span>
+    <div className="rounded-lg border border-icon-border p-4">
+      <h2 className="mb-3 text-sm font-semibold text-icon-text">
+        Scheduled searches <span className="font-normal text-icon-text-light">(run daily via cron)</span>
       </h2>
       <ul className="flex flex-col gap-2">
         {schedules.map((s) => (
           <li
             key={s.id}
-            className="flex flex-wrap items-center justify-between gap-3 rounded border border-zinc-800 px-3 py-2"
+            className="flex flex-wrap items-center justify-between gap-3 rounded border border-icon-border px-3 py-2"
           >
             <div className="min-w-0 flex-1">
-              <p className="text-sm text-zinc-200">
+              <p className="text-sm text-icon-text">
                 <span className="font-medium">{s.sector}</span>{" "}
-                <span className="text-zinc-500">— {s.query}</span>
+                <span className="text-icon-text-light">— {s.query}</span>
               </p>
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-icon-text-light">
                 {s.last_run_at
                   ? `Last run ${new Date(s.last_run_at).toLocaleString()} — ${s.last_run_summary ?? ""}`
                   : "Not run yet"}
@@ -69,8 +69,8 @@ export function SchedulesPanel({ schedules }: { schedules: DiscoveryScheduleReco
                 disabled={busy[s.id]}
                 className={`rounded border px-2 py-1 text-xs disabled:opacity-50 ${
                   s.enabled
-                    ? "border-emerald-700 text-emerald-300 hover:bg-emerald-900/30"
-                    : "border-zinc-700 text-zinc-400 hover:bg-zinc-800"
+                    ? "border-icon-primary text-icon-primary hover:bg-icon-primary-light"
+                    : "border-icon-border text-icon-text-light hover:bg-icon-surface"
                 }`}
               >
                 {s.enabled ? "Enabled" : "Disabled"}
@@ -78,7 +78,7 @@ export function SchedulesPanel({ schedules }: { schedules: DiscoveryScheduleReco
               <button
                 onClick={() => remove(s.id)}
                 disabled={busy[s.id]}
-                className="rounded border border-zinc-700 px-2 py-1 text-xs text-zinc-400 hover:bg-red-950/40 hover:text-red-300 disabled:opacity-50"
+                className="rounded border border-icon-border px-2 py-1 text-xs text-icon-text-light hover:bg-red-950/40 hover:text-red-300 disabled:opacity-50"
               >
                 Delete
               </button>

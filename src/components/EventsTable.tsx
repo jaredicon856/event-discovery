@@ -5,16 +5,16 @@ import type { ContactRecord, EventRecord } from "@/types/event";
 import { ContactsModal } from "@/components/ContactsModal";
 
 const TIER_STYLES: Record<string, string> = {
-  A: "bg-emerald-900/40 text-emerald-300 border-emerald-700",
+  A: "bg-icon-primary-light text-icon-primary border-icon-primary",
   B: "bg-sky-900/40 text-sky-300 border-sky-700",
-  C: "bg-zinc-800 text-zinc-400 border-zinc-700",
+  C: "bg-icon-surface text-icon-text-light border-icon-border",
 };
 
 const STATUS_STYLES: Record<string, string> = {
   open: "bg-emerald-900/40 text-emerald-300",
   closed: "bg-red-900/40 text-red-300",
   watch: "bg-amber-900/40 text-amber-300",
-  unknown: "bg-zinc-800 text-zinc-400",
+  unknown: "bg-icon-surface text-icon-text-light",
 };
 
 /** Agent-extracted URLs sometimes come back without a scheme (e.g. "linkedin.com/in/x"),
@@ -59,7 +59,7 @@ export function EventsTable({
 
   if (events.length === 0) {
     return (
-      <div className="rounded-lg border border-zinc-800 p-8 text-center text-zinc-500">
+      <div className="rounded-lg border border-icon-border p-8 text-center text-icon-text-light">
         No events match these filters yet. Try widening the filters or run discovery for a sector.
       </div>
     );
@@ -68,9 +68,9 @@ export function EventsTable({
   const openEvent = events.find((e) => e.id === openEventId);
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-zinc-800">
-      <table className="min-w-full divide-y divide-zinc-800 text-sm">
-        <thead className="bg-zinc-900 text-left text-xs uppercase tracking-wide text-zinc-500">
+    <div className="overflow-x-auto rounded-lg border border-icon-border">
+      <table className="min-w-full divide-y divide-icon-border text-sm">
+        <thead className="bg-icon-primary-light text-left text-xs uppercase tracking-wide text-icon-text-light">
           <tr>
             <th className="px-4 py-3">Event</th>
             <th className="px-4 py-3">Sector</th>
@@ -84,17 +84,17 @@ export function EventsTable({
             <th className="px-4 py-3">Contacts</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-zinc-800">
+        <tbody className="divide-y divide-icon-border">
           {events.map((event) => {
             const contacts = contactsByEvent[event.id] ?? [];
             return (
-              <tr key={event.id} className="align-top hover:bg-zinc-900/50">
-                <td className="max-w-xs px-4 py-3 font-medium text-zinc-200">{event.event_name}</td>
-                <td className="px-4 py-3 text-zinc-400">{event.sector}</td>
-                <td className="px-4 py-3 whitespace-nowrap text-zinc-400">
+              <tr key={event.id} className="align-top hover:bg-icon-primary-light">
+                <td className="max-w-xs px-4 py-3 font-medium text-icon-text">{event.event_name}</td>
+                <td className="px-4 py-3 text-icon-text-light">{event.sector}</td>
+                <td className="px-4 py-3 whitespace-nowrap text-icon-text-light">
                   {event.date_notes || event.event_start || "—"}
                 </td>
-                <td className="px-4 py-3 whitespace-nowrap text-zinc-400">
+                <td className="px-4 py-3 whitespace-nowrap text-icon-text-light">
                   {[event.city, event.state_country].filter(Boolean).join(", ") || "—"}
                 </td>
                 <td className="px-4 py-3">
@@ -104,7 +104,7 @@ export function EventsTable({
                     {event.status}
                   </span>
                 </td>
-                <td className="px-4 py-3 whitespace-nowrap text-zinc-400">{event.cfp_deadline || "—"}</td>
+                <td className="px-4 py-3 whitespace-nowrap text-icon-text-light">{event.cfp_deadline || "—"}</td>
                 <td className="px-4 py-3">
                   {event.visibility_tier ? (
                     <span
@@ -116,14 +116,14 @@ export function EventsTable({
                     "—"
                   )}
                 </td>
-                <td className="max-w-xs px-4 py-3 text-zinc-400">{event.best_client_fit || "—"}</td>
+                <td className="max-w-xs px-4 py-3 text-icon-text-light">{event.best_client_fit || "—"}</td>
                 <td className="px-4 py-3">
                   {event.source_url ? (
                     <a
                       href={normalizeUrl(event.source_url)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sky-400 hover:underline"
+                      className="text-icon-primary hover:underline"
                     >
                       link
                     </a>
@@ -136,17 +136,17 @@ export function EventsTable({
                     <button
                       onClick={() => enrich(event.id)}
                       disabled={enriching[event.id]}
-                      className="rounded border border-zinc-700 px-2 py-1 text-xs text-zinc-300 hover:bg-zinc-800 disabled:opacity-50"
+                      className="rounded border border-icon-border px-2 py-1 text-xs text-icon-text hover:bg-icon-surface disabled:opacity-50"
                     >
                       {enriching[event.id] ? "Searching…" : "Find contact"}
                     </button>
                     {!enriching[event.id] && attempted[event.id] && contacts.length === 0 && (
-                      <span className="text-xs text-zinc-500">none found</span>
+                      <span className="text-xs text-icon-text-light">none found</span>
                     )}
                     {contacts.length > 0 && (
                       <button
                         onClick={() => setOpenEventId(event.id)}
-                        className="text-xs text-sky-400 hover:underline"
+                        className="text-xs text-icon-primary hover:underline"
                       >
                         View {contacts.length} contact{contacts.length > 1 ? "s" : ""}
                       </button>

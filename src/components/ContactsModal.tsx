@@ -12,7 +12,7 @@ function normalizeUrl(url: string): string {
 const CONFIDENCE_STYLES: Record<string, string> = {
   high: "bg-emerald-900/40 text-emerald-300",
   medium: "bg-amber-900/40 text-amber-300",
-  low: "bg-zinc-800 text-zinc-400",
+  low: "bg-icon-surface text-icon-text-light",
 };
 
 export function ContactsModal({
@@ -34,34 +34,34 @@ export function ContactsModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-icon-blur p-4"
       onClick={onClose}
     >
       <div
-        className="max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-lg border border-zinc-700 bg-zinc-950 p-5"
+        className="max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-lg border border-icon-border bg-icon-background p-5"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-sm font-semibold text-zinc-200">Contacts</h2>
-            <p className="text-xs text-zinc-500">{eventName}</p>
+            <h2 className="text-sm font-semibold text-icon-text">Contacts</h2>
+            <p className="text-xs text-icon-text-light">{eventName}</p>
           </div>
           <button
             onClick={onClose}
-            className="rounded border border-zinc-700 px-2 py-1 text-xs text-zinc-400 hover:bg-zinc-800"
+            className="rounded border border-icon-border px-2 py-1 text-xs text-icon-text-light hover:bg-icon-surface"
           >
             Close
           </button>
         </div>
 
         {contacts.length === 0 ? (
-          <p className="text-sm text-zinc-500">No contacts found.</p>
+          <p className="text-sm text-icon-text-light">No contacts found.</p>
         ) : (
           <ul className="flex flex-col gap-3">
             {contacts.map((c) => (
-              <li key={c.id} className="rounded border border-zinc-800 p-3">
+              <li key={c.id} className="rounded border border-icon-border p-3">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium text-zinc-100">{c.name ?? "Unnamed contact"}</span>
+                  <span className="font-medium text-icon-text">{c.name ?? "Unnamed contact"}</span>
                   {c.confidence && (
                     <span
                       className={`rounded px-2 py-0.5 text-[10px] font-medium uppercase ${CONFIDENCE_STYLES[c.confidence] ?? CONFIDENCE_STYLES.low}`}
@@ -70,33 +70,33 @@ export function ContactsModal({
                     </span>
                   )}
                 </div>
-                {c.title && <p className="mt-0.5 text-xs text-zinc-400">{c.title}</p>}
+                {c.title && <p className="mt-0.5 text-xs text-icon-text-light">{c.title}</p>}
                 <div className="mt-2 flex flex-col gap-1 text-xs">
                   {c.email && (
-                    <a href={`mailto:${c.email}`} className="text-sky-400 hover:underline">
+                    <a href={`mailto:${c.email}`} className="text-icon-primary hover:underline">
                       {c.email}
                     </a>
                   )}
-                  {c.phone && <span className="text-zinc-300">{c.phone}</span>}
+                  {c.phone && <span className="text-icon-text">{c.phone}</span>}
                   {c.linkedin_url && (
                     <a
                       href={normalizeUrl(c.linkedin_url)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sky-400 hover:underline"
+                      className="text-icon-primary hover:underline"
                     >
                       LinkedIn profile
                     </a>
                   )}
                   {!c.email && !c.phone && !c.linkedin_url && (
-                    <span className="text-zinc-600">No direct contact info found</span>
+                    <span className="text-icon-text-light">No direct contact info found</span>
                   )}
                   {c.source_url && (
                     <a
                       href={normalizeUrl(c.source_url)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-zinc-500 hover:underline"
+                      className="text-icon-text-light hover:underline"
                     >
                       source
                     </a>
