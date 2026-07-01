@@ -54,11 +54,30 @@ If you ever need a fresh Supabase project:
 
 `POST /api/enrich` with `{ "eventId": "..." }` does the same two-step pattern (research, then
 forced structured extraction) to find organizer names/emails/phones for a specific event.
+`/api/discover` now also auto-runs this enrichment for every event it saves, so contacts show up
+without a separate manual step.
 
 Both routes accept an optional `x-cron-secret` header (checked against `CRON_SECRET` in env)
-so they can be safely triggered from a scheduler — Vercel Cron, n8n, Zapier — once you decide
-which categories to re-run on a cadence. Without `CRON_SECRET` set, they're open (fine for
-local dev, not for production).
+so they can be safely triggered from an external caller (n8n, Zapier, manual curl) without a
+browser session. Without `CRON_SECRET` set, they're open (fine for local dev, not for production).
+
+## Scheduled (cron) discovery
+
+Check "Repeat this search daily" when running a discovery from the dashboard to save it as a row
+in `discovery_schedules`. A Vercel Cron job (configured in `vercel.json`, currently daily at
+13:00 UTC) hits `GET /api/cron/run-scheduled`, which re-runs every *enabled* schedule end-to-end
+(search → extract → save → auto-enrich contacts) and records `last_run_at`/`last_run_summary` on
+each row. Toggle a schedule on/off or delete it from the "Scheduled searches" panel on the
+dashboard — no redeploy needed to change which searches run.
+
+To change the frequency, edit the `schedule` cron expression in `vercel.json` and redeploy (cron
+schedules are read from that file at build time, not from the database). Note: Vercel's Hobby
+plan limits cron jobs to once per day; more frequent schedules require Pro.
+
+This route authenticates differently than the others — Vercel automatically sends
+`Authorization: Bearer <CRON_SECRET>` on cron-triggered requests (its own convention, separate
+from the `x-cron-secret` header used elsewhere), so `CRON_SECRET` **must** be set in Vercel for
+the cron job to run at all.
 
 ## Deploying to Vercel
 
@@ -73,10 +92,11 @@ local dev, not for production).
 
 ## What's not built yet (next steps)
 
-- **Recurring re-crawl scheduling** — the `sources` table exists for tracking known portfolio
-  organizations (Small Business Expo, Becker's, DigiMarCon, etc.) to re-check periodically, but
-  nothing populates or schedules against it yet. Wire up Vercel Cron or n8n to call
-  `/api/discover` on a cadence per sector once you've picked which sectors to track.
+- **Portfolio-organization tracking** — the `sources` table exists for treating companies whose
+  business model is running recurring speaker events (Small Business Expo, BookThinkers, Top
+  Talent Hollywood) as permanent watch-targets distinct from one-off conferences, but nothing
+  populates it or crawls it specially yet. Scheduled discovery (above) covers *sector-level*
+  recurrence; it doesn't yet have a *source-level* re-crawl of a specific known organization's site.
 - **GoHighLevel export/sync** — CSV export exists (`/api/export?sector=...&tier=...&...`);
   pushing rows directly into a GHL pipeline/contact list as opportunities are found is not
   built.

@@ -7,6 +7,7 @@ export function DiscoverPanel() {
   const router = useRouter();
   const [sector, setSector] = useState("");
   const [query, setQuery] = useState("");
+  const [repeatDaily, setRepeatDaily] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string | null>(null);
 
@@ -24,12 +25,25 @@ export function DiscoverPanel() {
       const json = await res.json();
       if (!res.ok) {
         setResult(`Error: ${json.error ?? "discovery failed"}`);
-      } else {
-        const contactsMsg =
-          json.inserted > 0 ? ` Found ${json.contactsFound ?? 0} contact(s) across them.` : "";
-        setResult(`Found and saved ${json.inserted} event(s).${contactsMsg}`);
-        router.refresh();
+        return;
       }
+
+      const contactsMsg =
+        json.inserted > 0 ? ` Found ${json.contactsFound ?? 0} contact(s) across them.` : "";
+      let scheduleMsg = "";
+      if (repeatDaily) {
+        const scheduleRes = await fetch("/api/schedules", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sector, query }),
+        });
+        scheduleMsg = scheduleRes.ok
+          ? " Saved as a daily scheduled search."
+          : " (Failed to save as a daily schedule.)";
+      }
+
+      setResult(`Found and saved ${json.inserted} event(s).${contactsMsg}${scheduleMsg}`);
+      router.refresh();
     } catch {
       setResult("Error: request failed");
     } finally {
@@ -57,6 +71,15 @@ export function DiscoverPanel() {
           className="w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-sm text-zinc-200"
         />
       </div>
+      <label className="flex items-center gap-2 pb-2 text-xs text-zinc-400">
+        <input
+          type="checkbox"
+          checked={repeatDaily}
+          onChange={(e) => setRepeatDaily(e.target.checked)}
+          className="h-3.5 w-3.5"
+        />
+        Repeat this search daily
+      </label>
       <button
         type="submit"
         disabled={loading}

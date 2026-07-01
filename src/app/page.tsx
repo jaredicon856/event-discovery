@@ -2,8 +2,9 @@ import { getSupabaseServiceClient } from "@/lib/supabase";
 import { applyEventFilters, eventsBaseQuery, parseFilters } from "@/lib/filters";
 import { FilterBar } from "@/components/FilterBar";
 import { DiscoverPanel } from "@/components/DiscoverPanel";
+import { SchedulesPanel } from "@/components/SchedulesPanel";
 import { EventsTable } from "@/components/EventsTable";
-import type { ContactRecord, EventRecord } from "@/types/event";
+import type { ContactRecord, DiscoveryScheduleRecord, EventRecord } from "@/types/event";
 
 export const dynamic = "force-dynamic";
 
@@ -22,18 +23,22 @@ export default async function Home({
   let events: EventRecord[] = [];
   let sectors: string[] = [];
   let contactsByEvent: Record<string, ContactRecord[]> = {};
+  let schedules: DiscoveryScheduleRecord[] = [];
   let errorMessage: string | null = null;
 
   try {
     const supabase = getSupabaseServiceClient();
-    const [eventsRes, sectorsRes] = await Promise.all([
+    const [eventsRes, sectorsRes, schedulesRes] = await Promise.all([
       applyEventFilters(eventsBaseQuery(supabase), filters),
       supabase.from("events").select("sector").order("sector"),
+      supabase.from("discovery_schedules").select("*").order("created_at", { ascending: false }),
     ]);
 
     if (eventsRes.error) throw eventsRes.error;
     events = (eventsRes.data ?? []) as EventRecord[];
     sectors = Array.from(new Set((sectorsRes.data ?? []).map((r) => r.sector))).sort();
+    if (schedulesRes.error) throw schedulesRes.error;
+    schedules = (schedulesRes.data ?? []) as DiscoveryScheduleRecord[];
 
     const eventIds = events.map((e) => e.id);
     if (eventIds.length > 0) {
@@ -81,6 +86,7 @@ export default async function Home({
         )}
 
         <DiscoverPanel />
+        <SchedulesPanel schedules={schedules} />
         <FilterBar filters={filters} sectors={sectors} />
         <EventsTable events={events} initialContacts={contactsByEvent} />
       </div>

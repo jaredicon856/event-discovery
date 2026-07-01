@@ -50,6 +50,16 @@ export interface ContactRecord {
   created_at: string;
 }
 
+export interface DiscoveryScheduleRecord {
+  id: string;
+  sector: string;
+  query: string;
+  enabled: boolean;
+  last_run_at: string | null;
+  last_run_summary: string | null;
+  created_at: string;
+}
+
 export interface EventInput {
   sector: string;
   event_name: string;

@@ -22,4 +22,20 @@ export function assertCronAuthorized(request: NextRequest) {
   throw new UnauthorizedError();
 }
 
+/**
+ * Vercel Cron sends `Authorization: Bearer <CRON_SECRET>` automatically when
+ * a project env var named CRON_SECRET is set — this is Vercel's own
+ * convention, separate from the x-cron-secret header used above for other
+ * external callers (n8n, manual curl, etc).
+ */
+export function assertVercelCronAuthorized(request: NextRequest) {
+  const expected = process.env.CRON_SECRET;
+  if (!expected) throw new UnauthorizedError();
+
+  const auth = request.headers.get("authorization");
+  if (auth === `Bearer ${expected}`) return;
+
+  throw new UnauthorizedError();
+}
+
 export class UnauthorizedError extends Error {}
