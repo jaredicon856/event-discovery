@@ -249,7 +249,14 @@ export async function findEventContacts(params: {
 ${sourceUrl ? `Source URL: ${sourceUrl}` : ""}
 ${bookingPath ? `Known booking path: ${bookingPath}` : ""}
 
-Look for: the event organizer, program/content director, speaker relations contact, or CFP coordinator.
+Prioritize a NAMED individual: the event organizer, founder/CEO, program/content director, speaker
+relations contact, or CFP coordinator. A named person with a title is far more useful than a generic
+company phone number or a "submit here" portal link with no human attached.
+
+Only fall back to a generic org contact (main phone line, info@ email, a speaker-application portal
+with no named contact) if you cannot find any named individual at all — and even then, only include it
+if it's the only lead available, not alongside a named contact.
+
 Report any name, title, email address, phone number, or LinkedIn URL you find, and note how confident
 you are in each (high = directly published contact info, medium = inferred from role/org, low = generic
 org contact only). Only report information you actually found.`,
@@ -277,7 +284,12 @@ org contact only). Only report information you actually found.`,
       {
         role: "user",
         content: `Extract structured contact records from these findings. If nothing concrete was found,
-submit an empty contacts array rather than guessing.\n\n${findings}`,
+submit an empty contacts array rather than guessing.
+
+If the findings include at least one NAMED individual, only submit named contacts — drop any
+generic/unnamed entries (bare phone numbers, info@ addresses, application portals with no person
+attached), since a named contact makes those redundant. Only submit a generic/unnamed contact when
+it's the sole lead found.\n\n${findings}`,
       },
     ],
   });

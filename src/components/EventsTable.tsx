@@ -16,6 +16,12 @@ const STATUS_STYLES: Record<string, string> = {
   unknown: "bg-zinc-800 text-zinc-400",
 };
 
+/** Agent-extracted URLs sometimes come back without a scheme (e.g. "linkedin.com/in/x"),
+ * which browsers then resolve as a path relative to the current site. */
+function normalizeUrl(url: string): string {
+  return /^https?:\/\//i.test(url) ? url : `https://${url}`;
+}
+
 export function EventsTable({
   events,
   initialContacts,
@@ -26,6 +32,7 @@ export function EventsTable({
   const [enriching, setEnriching] = useState<Record<string, boolean>>({});
   const [contactsByEvent, setContactsByEvent] = useState<Record<string, ContactRecord[]>>(initialContacts);
   const [attempted, setAttempted] = useState<Record<string, boolean>>({});
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   async function enrich(eventId: string) {
     setEnriching((s) => ({ ...s, [eventId]: true }));
@@ -42,6 +49,7 @@ export function EventsTable({
           ...s,
           [eventId]: [...(s[eventId] ?? []), ...json.contacts],
         }));
+        setExpanded((s) => ({ ...s, [eventId]: true }));
       }
     } finally {
       setEnriching((s) => ({ ...s, [eventId]: false }));
@@ -74,93 +82,107 @@ export function EventsTable({
           </tr>
         </thead>
         <tbody className="divide-y divide-zinc-800">
-          {events.map((event) => (
-            <tr key={event.id} className="hover:bg-zinc-900/50">
-              <td className="max-w-xs px-4 py-3 font-medium text-zinc-200">{event.event_name}</td>
-              <td className="px-4 py-3 text-zinc-400">{event.sector}</td>
-              <td className="px-4 py-3 whitespace-nowrap text-zinc-400">
-                {event.date_notes || event.event_start || "—"}
-              </td>
-              <td className="px-4 py-3 whitespace-nowrap text-zinc-400">
-                {[event.city, event.state_country].filter(Boolean).join(", ") || "—"}
-              </td>
-              <td className="px-4 py-3">
-                <span
-                  className={`rounded px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[event.status] ?? STATUS_STYLES.unknown}`}
-                >
-                  {event.status}
-                </span>
-              </td>
-              <td className="px-4 py-3 whitespace-nowrap text-zinc-400">{event.cfp_deadline || "—"}</td>
-              <td className="px-4 py-3">
-                {event.visibility_tier ? (
+          {events.map((event) => {
+            const contacts = contactsByEvent[event.id] ?? [];
+            const isExpanded = expanded[event.id];
+            return (
+              <tr key={event.id} className="align-top hover:bg-zinc-900/50">
+                <td className="max-w-xs px-4 py-3 font-medium text-zinc-200">{event.event_name}</td>
+                <td className="px-4 py-3 text-zinc-400">{event.sector}</td>
+                <td className="px-4 py-3 whitespace-nowrap text-zinc-400">
+                  {event.date_notes || event.event_start || "—"}
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap text-zinc-400">
+                  {[event.city, event.state_country].filter(Boolean).join(", ") || "—"}
+                </td>
+                <td className="px-4 py-3">
                   <span
-                    className={`rounded border px-2 py-0.5 text-xs font-semibold ${TIER_STYLES[event.visibility_tier]}`}
+                    className={`rounded px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[event.status] ?? STATUS_STYLES.unknown}`}
                   >
-                    {event.visibility_tier}
+                    {event.status}
                   </span>
-                ) : (
-                  "—"
-                )}
-              </td>
-              <td className="max-w-xs px-4 py-3 text-zinc-400">{event.best_client_fit || "—"}</td>
-              <td className="px-4 py-3">
-                {event.source_url ? (
-                  <a
-                    href={event.source_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sky-400 hover:underline"
-                  >
-                    link
-                  </a>
-                ) : (
-                  "—"
-                )}
-              </td>
-              <td className="px-4 py-3 min-w-[220px]">
-                <button
-                  onClick={() => enrich(event.id)}
-                  disabled={enriching[event.id]}
-                  className="rounded border border-zinc-700 px-2 py-1 text-xs text-zinc-300 hover:bg-zinc-800 disabled:opacity-50"
-                >
-                  {enriching[event.id] ? "Searching…" : "Find contact"}
-                </button>
-                {!enriching[event.id] && attempted[event.id] && !contactsByEvent[event.id]?.length && (
-                  <span className="ml-2 text-xs text-zinc-500">none found</span>
-                )}
-                {contactsByEvent[event.id]?.length > 0 && (
-                  <ul className="mt-2 flex flex-col gap-1.5">
-                    {contactsByEvent[event.id].map((c) => (
-                      <li key={c.id ?? `${c.name}-${c.email}`} className="text-xs text-zinc-400">
-                        <span className="font-medium text-zinc-200">{c.name ?? "Unnamed contact"}</span>
-                        {c.title && <span className="text-zinc-500"> — {c.title}</span>}
-                        <div className="flex flex-wrap gap-x-2 text-zinc-500">
-                          {c.email && (
-                            <a href={`mailto:${c.email}`} className="text-sky-400 hover:underline">
-                              {c.email}
-                            </a>
-                          )}
-                          {c.phone && <span>{c.phone}</span>}
-                          {c.linkedin_url && (
-                            <a
-                              href={c.linkedin_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-sky-400 hover:underline"
-                            >
-                              LinkedIn
-                            </a>
-                          )}
-                          {c.confidence && <span className="italic">({c.confidence} confidence)</span>}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </td>
-            </tr>
-          ))}
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap text-zinc-400">{event.cfp_deadline || "—"}</td>
+                <td className="px-4 py-3">
+                  {event.visibility_tier ? (
+                    <span
+                      className={`rounded border px-2 py-0.5 text-xs font-semibold ${TIER_STYLES[event.visibility_tier]}`}
+                    >
+                      {event.visibility_tier}
+                    </span>
+                  ) : (
+                    "—"
+                  )}
+                </td>
+                <td className="max-w-xs px-4 py-3 text-zinc-400">{event.best_client_fit || "—"}</td>
+                <td className="px-4 py-3">
+                  {event.source_url ? (
+                    <a
+                      href={normalizeUrl(event.source_url)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sky-400 hover:underline"
+                    >
+                      link
+                    </a>
+                  ) : (
+                    "—"
+                  )}
+                </td>
+                <td className="px-4 py-3 min-w-[220px]">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => enrich(event.id)}
+                      disabled={enriching[event.id]}
+                      className="rounded border border-zinc-700 px-2 py-1 text-xs text-zinc-300 hover:bg-zinc-800 disabled:opacity-50"
+                    >
+                      {enriching[event.id] ? "Searching…" : "Find contact"}
+                    </button>
+                    {!enriching[event.id] && attempted[event.id] && contacts.length === 0 && (
+                      <span className="text-xs text-zinc-500">none found</span>
+                    )}
+                    {contacts.length > 0 && (
+                      <button
+                        onClick={() => setExpanded((s) => ({ ...s, [event.id]: !s[event.id] }))}
+                        className="text-xs text-sky-400 hover:underline"
+                      >
+                        {isExpanded ? "Hide" : "Show"} {contacts.length} contact{contacts.length > 1 ? "s" : ""}
+                      </button>
+                    )}
+                  </div>
+                  {isExpanded && contacts.length > 0 && (
+                    <ul className="mt-2 flex flex-col gap-1.5">
+                      {contacts.map((c) => (
+                        <li key={c.id ?? `${c.name}-${c.email}`} className="text-xs text-zinc-400">
+                          <span className="font-medium text-zinc-200">{c.name ?? "Unnamed contact"}</span>
+                          {c.title && <span className="text-zinc-500"> — {c.title}</span>}
+                          <div className="flex flex-wrap gap-x-2 text-zinc-500">
+                            {c.email && (
+                              <a href={`mailto:${c.email}`} className="text-sky-400 hover:underline">
+                                {c.email}
+                              </a>
+                            )}
+                            {c.phone && <span>{c.phone}</span>}
+                            {c.linkedin_url && (
+                              <a
+                                href={normalizeUrl(c.linkedin_url)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sky-400 hover:underline"
+                              >
+                                LinkedIn
+                              </a>
+                            )}
+                            {c.confidence && <span className="italic">({c.confidence} confidence)</span>}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
