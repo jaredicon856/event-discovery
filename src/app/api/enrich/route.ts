@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServiceClient } from "@/lib/supabase";
-import { findEventContacts } from "@/lib/agent";
+import { enrichAndSaveContacts } from "@/lib/enrichment";
 import { assertCronAuthorized, UnauthorizedError } from "@/lib/auth";
 
 export const maxDuration = 240;
@@ -38,26 +38,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: fetchError?.message ?? "Event not found" }, { status: 404 });
     }
 
-    const contacts = await findEventContacts({
-      eventName: event.event_name,
-      sourceUrl: event.source_url,
-      bookingPath: event.booking_path,
-    });
-
-    if (contacts.length === 0) {
-      return NextResponse.json({ inserted: 0, contacts: [] });
-    }
-
-    const { data, error } = await supabase
-      .from("contacts")
-      .insert(contacts.map((c) => ({ ...c, event_id: event.id, found_via: "agent_search" })))
-      .select();
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ inserted: data?.length ?? 0, contacts: data });
+    const contacts = await enrichAndSaveContacts(supabase, event);
+    return NextResponse.json({ inserted: contacts.length, contacts });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Enrichment failed";
     return NextResponse.json({ error: message }, { status: 500 });

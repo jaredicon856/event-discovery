@@ -25,7 +25,9 @@ export function DiscoverPanel() {
       if (!res.ok) {
         setResult(`Error: ${json.error ?? "discovery failed"}`);
       } else {
-        setResult(`Found and saved ${json.inserted} event(s).`);
+        const contactsMsg =
+          json.inserted > 0 ? ` Found ${json.contactsFound ?? 0} contact(s) across them.` : "";
+        setResult(`Found and saved ${json.inserted} event(s).${contactsMsg}`);
         router.refresh();
       }
     } catch {
@@ -60,7 +62,7 @@ export function DiscoverPanel() {
         disabled={loading}
         className="rounded bg-sky-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-50"
       >
-        {loading ? "Searching the web…" : "Run discovery"}
+        {loading ? "Searching + finding contacts…" : "Run discovery"}
       </button>
       {result && <p className="text-sm text-zinc-400">{result}</p>}
     </form>

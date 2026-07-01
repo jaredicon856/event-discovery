@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServiceClient } from "@/lib/supabase";
 import { applyEventFilters, eventsBaseQuery, parseFilters } from "@/lib/filters";
-import type { EventRecord } from "@/types/event";
+import type { ContactRecord, EventRecord } from "@/types/event";
 
-const COLUMNS: Array<keyof EventRecord> = [
+const EVENT_COLUMNS: Array<keyof EventRecord> = [
   "sector",
   "event_name",
   "opportunity_type",
@@ -23,6 +23,8 @@ const COLUMNS: Array<keyof EventRecord> = [
   "source_url",
   "visibility_tier",
 ];
+
+const CONTACT_FIELDS: Array<keyof ContactRecord> = ["name", "title", "email", "phone", "linkedin_url"];
 
 function csvEscape(value: unknown): string {
   if (value === null || value === undefined) return "";
@@ -44,8 +46,49 @@ export async function GET(request: NextRequest) {
   }
 
   const rows = (data ?? []) as EventRecord[];
-  const header = COLUMNS.join(",");
-  const body = rows.map((row) => COLUMNS.map((col) => csvEscape(row[col])).join(",")).join("\n");
+  const eventIds = rows.map((r) => r.id);
+
+  let contactsByEvent: Record<string, ContactRecord[]> = {};
+  if (eventIds.length > 0) {
+    const { data: contacts, error: contactsError } = await supabase
+      .from("contacts")
+      .select("*")
+      .in("event_id", eventIds);
+    if (contactsError) {
+      return NextResponse.json({ error: contactsError.message }, { status: 500 });
+    }
+    contactsByEvent = (contacts ?? []).reduce<Record<string, ContactRecord[]>>((acc, c) => {
+      (acc[c.event_id] ??= []).push(c as ContactRecord);
+      return acc;
+    }, {});
+  }
+
+  const maxContacts = Math.max(0, ...Object.values(contactsByEvent).map((c) => c.length));
+
+  const contactColumns: string[] = [];
+  for (let i = 1; i <= maxContacts; i++) {
+    for (const field of CONTACT_FIELDS) {
+      contactColumns.push(`contact_${i}_${field}`);
+    }
+  }
+
+  const header = [...EVENT_COLUMNS, ...contactColumns].join(",");
+
+  const body = rows
+    .map((row) => {
+      const eventValues = EVENT_COLUMNS.map((col) => csvEscape(row[col]));
+      const contacts = contactsByEvent[row.id] ?? [];
+      const contactValues: string[] = [];
+      for (let i = 0; i < maxContacts; i++) {
+        const contact = contacts[i];
+        for (const field of CONTACT_FIELDS) {
+          contactValues.push(csvEscape(contact ? contact[field] : null));
+        }
+      }
+      return [...eventValues, ...contactValues].join(",");
+    })
+    .join("\n");
+
   const csv = `${header}\n${body}\n`;
 
   return new NextResponse(csv, {
