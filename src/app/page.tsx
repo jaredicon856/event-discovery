@@ -3,7 +3,7 @@ import { applyEventFilters, eventsBaseQuery, parseFilters } from "@/lib/filters"
 import { FilterBar } from "@/components/FilterBar";
 import { DiscoverPanel } from "@/components/DiscoverPanel";
 import { EventsTable } from "@/components/EventsTable";
-import type { EventRecord } from "@/types/event";
+import type { ContactRecord, EventRecord } from "@/types/event";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +21,7 @@ export default async function Home({
 
   let events: EventRecord[] = [];
   let sectors: string[] = [];
+  let contactsByEvent: Record<string, ContactRecord[]> = {};
   let errorMessage: string | null = null;
 
   try {
@@ -33,6 +34,19 @@ export default async function Home({
     if (eventsRes.error) throw eventsRes.error;
     events = (eventsRes.data ?? []) as EventRecord[];
     sectors = Array.from(new Set((sectorsRes.data ?? []).map((r) => r.sector))).sort();
+
+    const eventIds = events.map((e) => e.id);
+    if (eventIds.length > 0) {
+      const { data: contacts, error: contactsError } = await supabase
+        .from("contacts")
+        .select("*")
+        .in("event_id", eventIds);
+      if (contactsError) throw contactsError;
+      contactsByEvent = (contacts ?? []).reduce<Record<string, ContactRecord[]>>((acc, c) => {
+        (acc[c.event_id] ??= []).push(c as ContactRecord);
+        return acc;
+      }, {});
+    }
   } catch (e) {
     errorMessage = e instanceof Error ? e.message : "Failed to load events";
   }
@@ -68,7 +82,7 @@ export default async function Home({
 
         <DiscoverPanel />
         <FilterBar filters={filters} sectors={sectors} />
-        <EventsTable events={events} />
+        <EventsTable events={events} initialContacts={contactsByEvent} />
       </div>
     </div>
   );

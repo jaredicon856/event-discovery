@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { EventRecord } from "@/types/event";
+import type { ContactRecord, EventRecord } from "@/types/event";
 
 const TIER_STYLES: Record<string, string> = {
   A: "bg-emerald-900/40 text-emerald-300 border-emerald-700",
@@ -16,9 +16,16 @@ const STATUS_STYLES: Record<string, string> = {
   unknown: "bg-zinc-800 text-zinc-400",
 };
 
-export function EventsTable({ events }: { events: EventRecord[] }) {
+export function EventsTable({
+  events,
+  initialContacts,
+}: {
+  events: EventRecord[];
+  initialContacts: Record<string, ContactRecord[]>;
+}) {
   const [enriching, setEnriching] = useState<Record<string, boolean>>({});
-  const [enrichResults, setEnrichResults] = useState<Record<string, number>>({});
+  const [contactsByEvent, setContactsByEvent] = useState<Record<string, ContactRecord[]>>(initialContacts);
+  const [attempted, setAttempted] = useState<Record<string, boolean>>({});
 
   async function enrich(eventId: string) {
     setEnriching((s) => ({ ...s, [eventId]: true }));
@@ -29,7 +36,13 @@ export function EventsTable({ events }: { events: EventRecord[] }) {
         body: JSON.stringify({ eventId }),
       });
       const json = await res.json();
-      setEnrichResults((s) => ({ ...s, [eventId]: json.inserted ?? 0 }));
+      setAttempted((s) => ({ ...s, [eventId]: true }));
+      if (Array.isArray(json.contacts) && json.contacts.length > 0) {
+        setContactsByEvent((s) => ({
+          ...s,
+          [eventId]: [...(s[eventId] ?? []), ...json.contacts],
+        }));
+      }
     } finally {
       setEnriching((s) => ({ ...s, [eventId]: false }));
     }
@@ -105,7 +118,7 @@ export function EventsTable({ events }: { events: EventRecord[] }) {
                   "—"
                 )}
               </td>
-              <td className="px-4 py-3 whitespace-nowrap">
+              <td className="px-4 py-3 min-w-[220px]">
                 <button
                   onClick={() => enrich(event.id)}
                   disabled={enriching[event.id]}
@@ -113,10 +126,37 @@ export function EventsTable({ events }: { events: EventRecord[] }) {
                 >
                   {enriching[event.id] ? "Searching…" : "Find contact"}
                 </button>
-                {enrichResults[event.id] !== undefined && (
-                  <span className="ml-2 text-xs text-zinc-500">
-                    {enrichResults[event.id] > 0 ? `+${enrichResults[event.id]} found` : "none found"}
-                  </span>
+                {!enriching[event.id] && attempted[event.id] && !contactsByEvent[event.id]?.length && (
+                  <span className="ml-2 text-xs text-zinc-500">none found</span>
+                )}
+                {contactsByEvent[event.id]?.length > 0 && (
+                  <ul className="mt-2 flex flex-col gap-1.5">
+                    {contactsByEvent[event.id].map((c) => (
+                      <li key={c.id ?? `${c.name}-${c.email}`} className="text-xs text-zinc-400">
+                        <span className="font-medium text-zinc-200">{c.name ?? "Unnamed contact"}</span>
+                        {c.title && <span className="text-zinc-500"> — {c.title}</span>}
+                        <div className="flex flex-wrap gap-x-2 text-zinc-500">
+                          {c.email && (
+                            <a href={`mailto:${c.email}`} className="text-sky-400 hover:underline">
+                              {c.email}
+                            </a>
+                          )}
+                          {c.phone && <span>{c.phone}</span>}
+                          {c.linkedin_url && (
+                            <a
+                              href={c.linkedin_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sky-400 hover:underline"
+                            >
+                              LinkedIn
+                            </a>
+                          )}
+                          {c.confidence && <span className="italic">({c.confidence} confidence)</span>}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
                 )}
               </td>
             </tr>
