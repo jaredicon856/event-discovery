@@ -31,22 +31,27 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "sector and query are required" }, { status: 400 });
   }
 
-  const { findings, citations } = await researchCategory({ sector: body.sector, query: body.query });
-  const events = await extractEvents({ findings, sector: body.sector, discoveryQuery: body.query });
+  try {
+    const { findings, citations } = await researchCategory({ sector: body.sector, query: body.query });
+    const events = await extractEvents({ findings, sector: body.sector, discoveryQuery: body.query });
 
-  if (events.length === 0) {
-    return NextResponse.json({ inserted: 0, updated: 0, citations, events: [] });
+    if (events.length === 0) {
+      return NextResponse.json({ inserted: 0, updated: 0, citations, events: [] });
+    }
+
+    const supabase = getSupabaseServiceClient();
+    const { data, error } = await supabase
+      .from("events")
+      .upsert(events, { onConflict: "event_name,event_start,source_url", ignoreDuplicates: false })
+      .select();
+
+    if (error) {
+      return NextResponse.json({ error: error.message, events }, { status: 500 });
+    }
+
+    return NextResponse.json({ inserted: data?.length ?? 0, citations, events: data });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Discovery failed";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  const supabase = getSupabaseServiceClient();
-  const { data, error } = await supabase
-    .from("events")
-    .upsert(events, { onConflict: "event_name,event_start,source_url", ignoreDuplicates: false })
-    .select();
-
-  if (error) {
-    return NextResponse.json({ error: error.message, events }, { status: 500 });
-  }
-
-  return NextResponse.json({ inserted: data?.length ?? 0, citations, events: data });
 }
