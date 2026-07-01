@@ -69,8 +69,20 @@ export function EventsTable({
 
   return (
     <div className="overflow-x-auto rounded-lg border border-icon-border">
-      <table className="min-w-full divide-y divide-icon-border text-sm">
-        <thead className="bg-icon-primary-light text-left text-xs uppercase tracking-wide text-icon-text-light">
+      <table className="w-full table-fixed divide-y divide-icon-border text-sm">
+        <colgroup>
+          <col className="w-[16%]" />
+          <col className="w-[10%]" />
+          <col className="w-[9%]" />
+          <col className="w-[11%]" />
+          <col className="w-[7%]" />
+          <col className="w-[8%]" />
+          <col className="w-[5%]" />
+          <col className="w-[16%]" />
+          <col className="w-[6%]" />
+          <col className="w-[12%]" />
+        </colgroup>
+        <thead className="bg-icon-primary-light text-left text-xs font-semibold uppercase tracking-wide text-icon-text-light">
           <tr>
             <th className="px-4 py-3">Event</th>
             <th className="px-4 py-3">Sector</th>
@@ -89,22 +101,22 @@ export function EventsTable({
             const contacts = contactsByEvent[event.id] ?? [];
             return (
               <tr key={event.id} className="align-top hover:bg-icon-primary-light">
-                <td className="max-w-xs px-4 py-3 font-medium text-icon-text">{event.event_name}</td>
-                <td className="px-4 py-3 text-icon-text-light">{event.sector}</td>
-                <td className="px-4 py-3 whitespace-nowrap text-icon-text-light">
+                <td className="break-words px-4 py-3 font-semibold text-icon-text">{event.event_name}</td>
+                <td className="break-words px-4 py-3 font-medium text-icon-text-light">{event.sector}</td>
+                <td className="break-words px-4 py-3 font-medium text-icon-text-light">
                   {event.date_notes || event.event_start || "—"}
                 </td>
-                <td className="px-4 py-3 whitespace-nowrap text-icon-text-light">
+                <td className="break-words px-4 py-3 font-medium text-icon-text-light">
                   {[event.city, event.state_country].filter(Boolean).join(", ") || "—"}
                 </td>
                 <td className="px-4 py-3">
                   <span
-                    className={`rounded px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[event.status] ?? STATUS_STYLES.unknown}`}
+                    className={`rounded px-2 py-0.5 text-xs font-semibold ${STATUS_STYLES[event.status] ?? STATUS_STYLES.unknown}`}
                   >
                     {event.status}
                   </span>
                 </td>
-                <td className="px-4 py-3 whitespace-nowrap text-icon-text-light">{event.cfp_deadline || "—"}</td>
+                <td className="break-words px-4 py-3 font-medium text-icon-text-light">{event.cfp_deadline || "—"}</td>
                 <td className="px-4 py-3">
                   {event.visibility_tier ? (
                     <span
@@ -116,14 +128,14 @@ export function EventsTable({
                     "—"
                   )}
                 </td>
-                <td className="max-w-xs px-4 py-3 text-icon-text-light">{event.best_client_fit || "—"}</td>
+                <td className="break-words px-4 py-3 font-medium text-icon-text-light">{event.best_client_fit || "—"}</td>
                 <td className="px-4 py-3">
                   {event.source_url ? (
                     <a
                       href={normalizeUrl(event.source_url)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-icon-primary hover:underline"
+                      className="font-medium text-icon-primary hover:underline"
                     >
                       link
                     </a>
@@ -131,22 +143,22 @@ export function EventsTable({
                     "—"
                   )}
                 </td>
-                <td className="px-4 py-3 min-w-[180px]">
-                  <div className="flex items-center gap-2">
+                <td className="px-4 py-3">
+                  <div className="flex flex-col items-start gap-1.5">
                     <button
                       onClick={() => enrich(event.id)}
                       disabled={enriching[event.id]}
-                      className="rounded border border-icon-border px-2 py-1 text-xs text-icon-text hover:bg-icon-surface disabled:opacity-50"
+                      className="rounded border border-icon-border px-2 py-1 text-xs font-medium text-icon-text hover:bg-icon-surface disabled:opacity-50"
                     >
                       {enriching[event.id] ? "Searching…" : "Find contact"}
                     </button>
                     {!enriching[event.id] && attempted[event.id] && contacts.length === 0 && (
-                      <span className="text-xs text-icon-text-light">none found</span>
+                      <span className="text-xs font-medium text-icon-text-light">none found</span>
                     )}
                     {contacts.length > 0 && (
                       <button
                         onClick={() => setOpenEventId(event.id)}
-                        className="text-xs text-icon-primary hover:underline"
+                        className="text-xs font-medium text-icon-primary hover:underline"
                       >
                         View {contacts.length} contact{contacts.length > 1 ? "s" : ""}
                       </button>

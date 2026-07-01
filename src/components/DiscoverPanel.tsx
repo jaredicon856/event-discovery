@@ -54,24 +54,24 @@ export function DiscoverPanel() {
   return (
     <form onSubmit={runDiscovery} className="flex flex-wrap items-end gap-3 rounded-lg border border-icon-border p-4">
       <div className="flex flex-col gap-1">
-        <label className="text-xs uppercase text-icon-text-light">Sector</label>
+        <label className="text-xs font-semibold uppercase text-icon-text-light">Sector</label>
         <input
           value={sector}
           onChange={(e) => setSector(e.target.value)}
           placeholder="e.g. Healthcare"
-          className="rounded border border-icon-border bg-icon-surface px-3 py-1.5 text-sm text-icon-text"
+          className="rounded border border-icon-border bg-icon-surface px-3 py-1.5 text-sm font-medium text-icon-text"
         />
       </div>
       <div className="flex flex-1 min-w-[240px] flex-col gap-1">
-        <label className="text-xs uppercase text-icon-text-light">Search focus</label>
+        <label className="text-xs font-semibold uppercase text-icon-text-light">Search focus</label>
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="e.g. call for speakers hospital executive conference 2026"
-          className="w-full rounded border border-icon-border bg-icon-surface px-3 py-1.5 text-sm text-icon-text"
+          className="w-full rounded border border-icon-border bg-icon-surface px-3 py-1.5 text-sm font-medium text-icon-text"
         />
       </div>
-      <label className="flex items-center gap-2 pb-2 text-xs text-icon-text-light">
+      <label className="flex items-center gap-2 pb-2 text-xs font-medium text-icon-text-light">
         <input
           type="checkbox"
           checked={repeatDaily}
@@ -87,7 +87,7 @@ export function DiscoverPanel() {
       >
         {loading ? "Searching + finding contacts…" : "Run discovery"}
       </button>
-      {result && <p className="text-sm text-icon-text-light">{result}</p>}
+      {result && <p className="text-sm font-medium text-icon-text-light">{result}</p>}
     </form>
   );
 }
