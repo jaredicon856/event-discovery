@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-export function SaveListButton() {
+export function SaveListButton({ latestRunId }: { latestRunId: string | null }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [showInput, setShowInput] = useState(false);
@@ -11,9 +11,12 @@ export function SaveListButton() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  const hasAnyFilter = ["sector", "tier", "status", "from", "to", "q"].some((key) =>
+  const urlHasFilter = ["sector", "tier", "status", "from", "to", "q"].some((key) =>
     Boolean(searchParams.get(key))
   );
+  // With no filters in the URL, we're viewing the latest discovery run by
+  // default — saving in that state should capture that run, not nothing.
+  const canSave = urlHasFilter || Boolean(latestRunId);
 
   async function save() {
     if (!name.trim()) return;
@@ -31,6 +34,7 @@ export function SaveListButton() {
           from: searchParams.get("from") || undefined,
           to: searchParams.get("to") || undefined,
           q: searchParams.get("q") || undefined,
+          runId: urlHasFilter ? searchParams.get("runId") || undefined : latestRunId ?? undefined,
         }),
       });
       const json = await res.json();
@@ -53,8 +57,8 @@ export function SaveListButton() {
       <button
         type="button"
         onClick={() => setShowInput(true)}
-        disabled={!hasAnyFilter}
-        title={hasAnyFilter ? undefined : "Apply at least one filter first"}
+        disabled={!canSave}
+        title={canSave ? undefined : "Apply a filter or run a search first"}
         className="rounded border border-icon-border px-3 py-1.5 text-sm font-medium text-icon-text-light hover:bg-icon-surface disabled:opacity-40"
       >
         Save as list

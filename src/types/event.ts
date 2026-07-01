@@ -31,6 +31,7 @@ export interface EventRecord {
   source_id: string | null;
   discovered_via: string;
   discovery_query: string | null;
+  discovery_run_id: string | null;
   raw_extract: unknown;
   created_at: string;
   updated_at: string;
@@ -69,6 +70,7 @@ export interface SavedListRecord {
   from_date: string | null;
   to_date: string | null;
   q: string | null;
+  discovery_run_id: string | null;
   created_at: string;
   /** Computed at read time, not stored — how many events currently match this list's filters. */
   eventCount?: number;

@@ -85,11 +85,29 @@ Apply any combination of filters (sector/tier/status/date range/keyword) on the 
 click "Save as list" to bookmark that exact filter as a named, one-click shortcut — stored in
 `saved_lists`. Clicking a saved list's name re-applies its filters instantly.
 
+A saved list can also capture the results of one specific discovery run (see below) instead of a
+sector/tier/etc filter — that's what "Save as list" does when you save from the default "latest
+search results" view, where there's no filter to save otherwise.
+
 **Deleting a saved list also permanently deletes every event currently matching its filter
 criteria** (and their contacts, via cascade) — not just the saved shortcut. This is real, hard
 data deletion with no undo, so the UI shows a confirmation naming the exact event count before
 it runs. A list can never be created or deleted with zero filter criteria (that would match/wipe
 every event in the database) — both the API and UI block that case.
+
+## Default dashboard view: latest search results, not everything
+
+Every event is tagged with a `discovery_run_id` (a UUID generated once per `runDiscovery()` call,
+shared by every event that run touched). With no filters applied and no saved list open, the
+dashboard shows only the events tagged with the *most recent* run — not the full accumulated
+table — so a fresh search's results are immediately visible instead of buried among everything
+ever found. Running a new discovery search (from the panel at the top) navigates back to this
+clean default view automatically.
+
+Applying any filter, opening a saved list, or clicking "Browse all events instead" bypasses the
+"latest run" restriction and queries across every event as before. The CSV seed data and any
+event whose run has since been superseded still exist and are fully reachable this way — nothing
+is hidden permanently, just not shown by default.
 
 ## Deploying to Vercel
 

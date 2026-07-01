@@ -12,6 +12,7 @@ function filterSummary(list: SavedListRecord): string {
   if (list.from_date) parts.push(`From ${list.from_date}`);
   if (list.to_date) parts.push(`To ${list.to_date}`);
   if (list.q) parts.push(`Search: "${list.q}"`);
+  if (list.discovery_run_id) parts.push("Saved search batch");
   return parts.join(" · ") || "No filters";
 }
 
@@ -23,6 +24,7 @@ function listHref(list: SavedListRecord): string {
   if (list.from_date) params.set("from", list.from_date);
   if (list.to_date) params.set("to", list.to_date);
   if (list.q) params.set("q", list.q);
+  if (list.discovery_run_id) params.set("runId", list.discovery_run_id);
   return `/?${params.toString()}`;
 }
 

@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
     from?: string;
     to?: string;
     q?: string;
+    runId?: string;
   };
   try {
     body = await request.json();
@@ -51,6 +52,7 @@ export async function POST(request: NextRequest) {
     from: body.from,
     to: body.to,
     q: body.q,
+    runId: body.runId,
   };
 
   if (!hasAnyFilter(filters)) {
@@ -71,6 +73,7 @@ export async function POST(request: NextRequest) {
       from_date: filters.from ?? null,
       to_date: filters.to ?? null,
       q: filters.q ?? null,
+      discovery_run_id: filters.runId ?? null,
     })
     .select()
     .single();

@@ -43,6 +43,10 @@ export function DiscoverPanel() {
       }
 
       setResult(`Found and saved ${json.inserted} event(s).${contactsMsg}${scheduleMsg}`);
+      // Navigate to the clean root URL so the fresh results (now "latest
+      // search results") are immediately visible, even if the user was
+      // previously viewing a filtered view or a saved list.
+      router.push("/");
       router.refresh();
     } catch {
       setResult("Error: request failed");

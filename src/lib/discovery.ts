@@ -8,6 +8,8 @@ export interface DiscoveryResult {
   contactsFound: number;
   citations: string[];
   events: EventRecord[];
+  /** Tag shared by every event this run touched — lets the dashboard show "just this search". */
+  runId: string;
 }
 
 /**
@@ -20,16 +22,20 @@ export async function runDiscovery(
   supabase: SupabaseClient,
   params: { sector: string; query: string }
 ): Promise<DiscoveryResult> {
+  const runId = crypto.randomUUID();
   const { findings, citations } = await researchCategory(params);
   const events = await extractEvents({ findings, sector: params.sector, discoveryQuery: params.query });
 
   if (events.length === 0) {
-    return { inserted: 0, contactsFound: 0, citations, events: [] };
+    return { inserted: 0, contactsFound: 0, citations, events: [], runId };
   }
 
   const { data, error } = await supabase
     .from("events")
-    .upsert(events, { onConflict: "event_name,event_start,source_url", ignoreDuplicates: false })
+    .upsert(
+      events.map((e) => ({ ...e, discovery_run_id: runId })),
+      { onConflict: "event_name,event_start,source_url", ignoreDuplicates: false }
+    )
     .select();
 
   if (error) throw new Error(error.message);
@@ -43,5 +49,5 @@ export async function runDiscovery(
     0
   );
 
-  return { inserted: savedEvents.length, contactsFound, citations, events: savedEvents };
+  return { inserted: savedEvents.length, contactsFound, citations, events: savedEvents, runId };
 }

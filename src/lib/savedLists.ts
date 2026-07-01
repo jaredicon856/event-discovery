@@ -10,6 +10,7 @@ export function savedListToFilters(row: SavedListRecord): EventFilters {
     from: row.from_date ?? undefined,
     to: row.to_date ?? undefined,
     q: row.q ?? undefined,
+    runId: row.discovery_run_id ?? undefined,
   };
 }
 

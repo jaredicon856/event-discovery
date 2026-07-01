@@ -6,9 +6,11 @@ const SELECT_CLASS = "rounded border border-icon-border bg-icon-surface px-3 py-
 export function FilterBar({
   filters,
   sectors,
+  latestRunId,
 }: {
   filters: EventFilters;
   sectors: string[];
+  latestRunId: string | null;
 }) {
   return (
     <form className="flex flex-wrap items-end gap-3 rounded-lg border border-icon-border p-4" action="/" method="GET">
@@ -70,7 +72,7 @@ export function FilterBar({
         Clear
       </a>
       <div className="ml-auto">
-        <SaveListButton />
+        <SaveListButton latestRunId={latestRunId} />
       </div>
     </form>
   );

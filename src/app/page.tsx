@@ -1,6 +1,6 @@
 import Image from "next/image";
 import { getSupabaseServiceClient } from "@/lib/supabase";
-import { applyEventFilters, eventsBaseQuery, parseFilters } from "@/lib/filters";
+import { applyEventFilters, eventsBaseQuery, hasAnyFilter, parseFilters } from "@/lib/filters";
 import { FilterBar } from "@/components/FilterBar";
 import { DiscoverPanel } from "@/components/DiscoverPanel";
 import { SchedulesPanel } from "@/components/SchedulesPanel";
@@ -22,29 +22,52 @@ export default async function Home({
     if (typeof value === "string") usp.set(key, value);
   }
   const filters = parseFilters(usp);
+  const browsingFiltered = hasAnyFilter(filters);
+  const viewAll = usp.get("view") === "all";
 
   let events: EventRecord[] = [];
   let sectors: string[] = [];
   let contactsByEvent: Record<string, ContactRecord[]> = {};
   let schedules: DiscoveryScheduleRecord[] = [];
   let savedLists: SavedListRecord[] = [];
+  let latestRunId: string | null = null;
   let errorMessage: string | null = null;
 
   try {
     const supabase = getSupabaseServiceClient();
-    const [eventsRes, sectorsRes, schedulesRes, savedListsResult] = await Promise.all([
-      applyEventFilters(eventsBaseQuery(supabase), filters),
+    const [sectorsRes, schedulesRes, savedListsResult, latestRunRes] = await Promise.all([
       supabase.from("events").select("sector").order("sector"),
       supabase.from("discovery_schedules").select("*").order("created_at", { ascending: false }),
       getSavedListsWithCounts(supabase),
+      supabase
+        .from("events")
+        .select("discovery_run_id")
+        .not("discovery_run_id", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
     ]);
 
-    if (eventsRes.error) throw eventsRes.error;
-    events = (eventsRes.data ?? []) as EventRecord[];
     sectors = Array.from(new Set((sectorsRes.data ?? []).map((r) => r.sector))).sort();
     if (schedulesRes.error) throw schedulesRes.error;
     schedules = (schedulesRes.data ?? []) as DiscoveryScheduleRecord[];
     savedLists = savedListsResult;
+    latestRunId = latestRunRes.data?.discovery_run_id ?? null;
+
+    // Default view (no filters/saved list/explicit "browse all" applied) shows
+    // only the most recent discovery run's results, not the full accumulated
+    // table — otherwise a fresh search gets buried under everything ever found.
+    let eventsRes: { data: EventRecord[] | null; error: unknown };
+    if (browsingFiltered || viewAll) {
+      eventsRes = await applyEventFilters(eventsBaseQuery(supabase), filters);
+    } else if (latestRunId) {
+      eventsRes = await applyEventFilters(eventsBaseQuery(supabase), { runId: latestRunId });
+    } else {
+      eventsRes = { data: [], error: null };
+    }
+
+    if (eventsRes.error) throw eventsRes.error;
+    events = (eventsRes.data ?? []) as EventRecord[];
 
     const eventIds = events.map((e) => e.id);
     if (eventIds.length > 0) {
@@ -62,7 +85,9 @@ export default async function Home({
     errorMessage = e instanceof Error ? e.message : "Failed to load events";
   }
 
-  const exportHref = `/api/export?${usp.toString()}`;
+  const exportParams = new URLSearchParams(usp);
+  if (!browsingFiltered && !viewAll && latestRunId) exportParams.set("runId", latestRunId);
+  const exportHref = `/api/export?${exportParams.toString()}`;
 
   return (
     <div className="min-h-screen bg-icon-background px-6 py-10 text-icon-text sm:px-10">
@@ -96,8 +121,24 @@ export default async function Home({
 
         <DiscoverPanel />
         <SchedulesPanel schedules={schedules} />
-        <FilterBar filters={filters} sectors={sectors} />
+        <FilterBar filters={filters} sectors={sectors} latestRunId={latestRunId} />
         <SavedListsPanel lists={savedLists} />
+
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-semibold uppercase tracking-wide text-icon-text-light">
+            {browsingFiltered ? "Filtered results" : viewAll ? "All events" : "Latest search results"}
+          </p>
+          {!browsingFiltered && !viewAll && (
+            <a href="/?view=all" className="text-xs font-medium text-icon-text-light hover:text-icon-text">
+              Browse all events instead
+            </a>
+          )}
+          {viewAll && (
+            <a href="/" className="text-xs font-medium text-icon-text-light hover:text-icon-text">
+              Back to latest search results
+            </a>
+          )}
+        </div>
         <EventsTable events={events} initialContacts={contactsByEvent} />
       </div>
     </div>
