@@ -79,6 +79,18 @@ This route authenticates differently than the others — Vercel automatically se
 from the `x-cron-secret` header used elsewhere), so `CRON_SECRET` **must** be set in Vercel for
 the cron job to run at all.
 
+## Saved lists ("smart lists")
+
+Apply any combination of filters (sector/tier/status/date range/keyword) on the dashboard, then
+click "Save as list" to bookmark that exact filter as a named, one-click shortcut — stored in
+`saved_lists`. Clicking a saved list's name re-applies its filters instantly.
+
+**Deleting a saved list also permanently deletes every event currently matching its filter
+criteria** (and their contacts, via cascade) — not just the saved shortcut. This is real, hard
+data deletion with no undo, so the UI shows a confirmation naming the exact event count before
+it runs. A list can never be created or deleted with zero filter criteria (that would match/wipe
+every event in the database) — both the API and UI block that case.
+
 ## Deploying to Vercel
 
 1. Push this repo to GitHub.

@@ -38,3 +38,8 @@ export function applyEventFilters(query: any, filters: EventFilters) {
 export function eventsBaseQuery(supabase: SupabaseClient) {
   return supabase.from("events").select("*").order("event_start", { ascending: true, nullsFirst: false });
 }
+
+/** A list with no filter criteria at all would match/delete every event — never allowed. */
+export function hasAnyFilter(filters: EventFilters): boolean {
+  return Boolean(filters.sector || filters.tier || filters.status || filters.from || filters.to || filters.q);
+}

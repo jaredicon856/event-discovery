@@ -1,4 +1,5 @@
 import type { EventFilters } from "@/lib/filters";
+import { SaveListButton } from "@/components/SaveListButton";
 
 const SELECT_CLASS = "rounded border border-icon-border bg-icon-surface px-3 py-1.5 text-sm font-medium text-icon-text";
 
@@ -68,6 +69,9 @@ export function FilterBar({
       <a href="/" className="text-sm font-medium text-icon-text-light hover:text-icon-text">
         Clear
       </a>
+      <div className="ml-auto">
+        <SaveListButton />
+      </div>
     </form>
   );
 }

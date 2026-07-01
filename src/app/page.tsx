@@ -4,8 +4,10 @@ import { applyEventFilters, eventsBaseQuery, parseFilters } from "@/lib/filters"
 import { FilterBar } from "@/components/FilterBar";
 import { DiscoverPanel } from "@/components/DiscoverPanel";
 import { SchedulesPanel } from "@/components/SchedulesPanel";
+import { SavedListsPanel } from "@/components/SavedListsPanel";
 import { EventsTable } from "@/components/EventsTable";
-import type { ContactRecord, DiscoveryScheduleRecord, EventRecord } from "@/types/event";
+import { getSavedListsWithCounts } from "@/lib/savedLists";
+import type { ContactRecord, DiscoveryScheduleRecord, EventRecord, SavedListRecord } from "@/types/event";
 
 export const dynamic = "force-dynamic";
 
@@ -25,14 +27,16 @@ export default async function Home({
   let sectors: string[] = [];
   let contactsByEvent: Record<string, ContactRecord[]> = {};
   let schedules: DiscoveryScheduleRecord[] = [];
+  let savedLists: SavedListRecord[] = [];
   let errorMessage: string | null = null;
 
   try {
     const supabase = getSupabaseServiceClient();
-    const [eventsRes, sectorsRes, schedulesRes] = await Promise.all([
+    const [eventsRes, sectorsRes, schedulesRes, savedListsResult] = await Promise.all([
       applyEventFilters(eventsBaseQuery(supabase), filters),
       supabase.from("events").select("sector").order("sector"),
       supabase.from("discovery_schedules").select("*").order("created_at", { ascending: false }),
+      getSavedListsWithCounts(supabase),
     ]);
 
     if (eventsRes.error) throw eventsRes.error;
@@ -40,6 +44,7 @@ export default async function Home({
     sectors = Array.from(new Set((sectorsRes.data ?? []).map((r) => r.sector))).sort();
     if (schedulesRes.error) throw schedulesRes.error;
     schedules = (schedulesRes.data ?? []) as DiscoveryScheduleRecord[];
+    savedLists = savedListsResult;
 
     const eventIds = events.map((e) => e.id);
     if (eventIds.length > 0) {
@@ -92,6 +97,7 @@ export default async function Home({
         <DiscoverPanel />
         <SchedulesPanel schedules={schedules} />
         <FilterBar filters={filters} sectors={sectors} />
+        <SavedListsPanel lists={savedLists} />
         <EventsTable events={events} initialContacts={contactsByEvent} />
       </div>
     </div>

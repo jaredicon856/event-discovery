@@ -60,6 +60,20 @@ export interface DiscoveryScheduleRecord {
   created_at: string;
 }
 
+export interface SavedListRecord {
+  id: string;
+  name: string;
+  sector: string | null;
+  tier: string | null;
+  status: string | null;
+  from_date: string | null;
+  to_date: string | null;
+  q: string | null;
+  created_at: string;
+  /** Computed at read time, not stored — how many events currently match this list's filters. */
+  eventCount?: number;
+}
+
 export interface EventInput {
   sector: string;
   event_name: string;
