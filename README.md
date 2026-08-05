@@ -109,13 +109,35 @@ Applying any filter, opening a saved list, or clicking "Browse all events instea
 event whose run has since been superseded still exist and are fully reachable this way — nothing
 is hidden permanently, just not shown by default.
 
+## Iris export (PDF → Command Center)
+
+"Export PDF" opens a modal (client email required, name optional), generates a PDF of whatever's
+currently shown (same filters as "Export filtered CSV"), and:
+
+1. POSTs it server-side to Iris (`POST /api/ingest/client-documents` on the sales app) with
+   `type: "event_scout_pdf"`, authenticated via `Authorization: Bearer ${BC_INGEST_SECRET}` —
+   `BC_INGEST_SECRET` is server-only (`src/lib/iris.ts` / `src/app/api/export/pdf/route.ts`) and
+   never reaches the browser.
+2. Triggers a normal local download of the same PDF in the browser regardless of the Iris
+   outcome, so the export is still useful even if the client isn't in Iris yet or the request
+   fails.
+
+Iris matches purely on email against existing `ops_clients` and **never creates a new client** —
+`{ attached: false, reason: "no_matching_client" }` surfaces as a toast telling the user to fix
+the email or add the client in Ops/Iris first. `{ attached: true }` shows a success toast with
+the client name Iris returned. Re-exporting the same document `type` for a client replaces the
+previous file on their Documents tab (that's Iris-side behavior, not something this app controls).
+
+Requires `BC_INGEST_SECRET` (same value used by Command Center / Battlecard Generator) and
+optionally `IRIS_INGEST_URL` (defaults to the production sales-app URL) in env.
+
 ## Deploying to Vercel
 
 1. Push this repo to GitHub.
 2. Import it in Vercel.
 3. Add the same env vars from `.env.local` (`NEXT_PUBLIC_SUPABASE_URL`,
    `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY`,
-   and a real random `CRON_SECRET`) in Vercel's Project Settings → Environment Variables.
+   `CRON_SECRET`, and `BC_INGEST_SECRET`) in Vercel's Project Settings → Environment Variables.
 4. Deploy. The discovery/enrich routes have `maxDuration` set (300s/120s) since web-search
    agent calls take a while — make sure your Vercel plan supports that function duration
    (Pro plan or higher for >60s; Hobby caps at 60s, so bump `maxDuration` down or upgrade).

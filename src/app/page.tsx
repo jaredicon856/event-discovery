@@ -6,6 +6,7 @@ import { DiscoverPanel } from "@/components/DiscoverPanel";
 import { SchedulesPanel } from "@/components/SchedulesPanel";
 import { SavedListsPanel } from "@/components/SavedListsPanel";
 import { EventsTable } from "@/components/EventsTable";
+import { IrisExportButton } from "@/components/IrisExportButton";
 import { getSavedListsWithCounts } from "@/lib/savedLists";
 import type { ContactRecord, DiscoveryScheduleRecord, EventRecord, SavedListRecord } from "@/types/event";
 
@@ -88,6 +89,7 @@ export default async function Home({
   const exportParams = new URLSearchParams(usp);
   if (!browsingFiltered && !viewAll && latestRunId) exportParams.set("runId", latestRunId);
   const exportHref = `/api/export?${exportParams.toString()}`;
+  const exportFiltersObj = Object.fromEntries(exportParams.entries());
 
   return (
     <div className="min-h-screen bg-icon-background px-6 py-10 text-icon-text sm:px-10">
@@ -102,12 +104,15 @@ export default async function Home({
               </p>
             </div>
           </div>
-          <a
-            href={exportHref}
-            className="rounded border border-icon-primary px-4 py-2 text-sm font-medium text-icon-primary hover:bg-icon-primary-light"
-          >
-            Export filtered CSV
-          </a>
+          <div className="flex items-center gap-2">
+            <a
+              href={exportHref}
+              className="rounded border border-icon-primary px-4 py-2 text-sm font-medium text-icon-primary hover:bg-icon-primary-light"
+            >
+              Export filtered CSV
+            </a>
+            <IrisExportButton filters={exportFiltersObj} />
+          </div>
         </header>
 
         {errorMessage && (
