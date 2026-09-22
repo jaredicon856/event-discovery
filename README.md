@@ -19,7 +19,31 @@ discovery/enrichment.
 - `.env.local` is filled in with real Supabase keys. Only `ANTHROPIC_API_KEY` needs to stay current
   (get one at [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys)).
 
-## Local development
+## Developing in the cloud (GitHub Codespaces) — no local checkout needed
+
+This repo includes `.devcontainer/devcontainer.json`, so you can develop entirely in the cloud
+instead of cloning it to your own machine:
+
+1. On [github.com/jaredicon856/event-discovery](https://github.com/jaredicon856/event-discovery),
+   click **Code → Codespaces → Create codespace on main**. GitHub spins up a cloud VM with Node
+   pre-installed and runs `npm install` automatically.
+2. Add the real secrets once as **Codespaces secrets**, not in any committed file: repo
+   **Settings → Secrets and variables → Codespaces**, add each of `NEXT_PUBLIC_SUPABASE_URL`,
+   `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY`,
+   `CRON_SECRET`, `BC_INGEST_SECRET`, `IRIS_INGEST_URL` (values in `.env.example` show the shape;
+   get the real values the same place you got them for `.env.local`/Vercel). They're injected
+   automatically into every future Codespace for this repo.
+3. In the Codespace's terminal (a full VS Code in your browser, or reopen it in your local VS
+   Code / JetBrains "Remote - Codespaces" — the *code* still runs in the cloud VM either way):
+   `npm run dev` to preview, or `claude` to start a Claude Code session — every file it edits
+   lives on that cloud VM, never on your own machine.
+4. Push commits from there as usual; Vercel redeploys the same way regardless of where the push
+   came from.
+
+Codespaces usage is billed by GitHub past the free monthly quota — stop the Codespace
+(**Codespaces → ⋯ → Stop codespace**) when you're done with it for the day.
+
+## Local development (alternative — runs on your own machine)
 
 ```bash
 npm install

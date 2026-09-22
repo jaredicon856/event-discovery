@@ -1,0 +1,26 @@
+{
+  "name": "event-scout",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "22"
+    }
+  },
+  "postCreateCommand": "npm install && npm install -g @anthropic-ai/claude-code",
+  "forwardPorts": [3000],
+  "customizations": {
+    "vscode": {
+      "extensions": ["dbaeumer.vscode-eslint", "esbenp.prettier-vscode", "bradlc.vscode-tailwindcss"]
+    }
+  },
+  "remoteEnv": {
+    "// NOTE": "Real values go in Codespaces secrets (repo Settings > Secrets and variables > Codespaces), never committed here.",
+    "NEXT_PUBLIC_SUPABASE_URL": "${localEnv:NEXT_PUBLIC_SUPABASE_URL}",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "${localEnv:NEXT_PUBLIC_SUPABASE_ANON_KEY}",
+    "SUPABASE_SERVICE_ROLE_KEY": "${localEnv:SUPABASE_SERVICE_ROLE_KEY}",
+    "ANTHROPIC_API_KEY": "${localEnv:ANTHROPIC_API_KEY}",
+    "CRON_SECRET": "${localEnv:CRON_SECRET}",
+    "BC_INGEST_SECRET": "${localEnv:BC_INGEST_SECRET}",
+    "IRIS_INGEST_URL": "${localEnv:IRIS_INGEST_URL}"
+  }
+}
