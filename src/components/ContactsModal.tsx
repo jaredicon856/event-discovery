@@ -10,8 +10,8 @@ function normalizeUrl(url: string): string {
 }
 
 const CONFIDENCE_STYLES: Record<string, string> = {
-  high: "bg-emerald-900/40 text-emerald-300",
-  medium: "bg-amber-900/40 text-amber-300",
+  high: "bg-emerald-50 text-emerald-700",
+  medium: "bg-amber-50 text-amber-700",
   low: "bg-icon-surface text-icon-text-light",
 };
 

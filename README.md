@@ -11,6 +11,28 @@ An AI-agent-powered database of speaking and networking opportunities. Two ways 
 Stack: Next.js (App Router) on Vercel, Postgres on Supabase, Claude (Anthropic API) for
 discovery/enrichment.
 
+## App shell / navigation
+
+A persistent sidebar (`src/components/Sidebar.tsx`, dark/gold, in `layout.tsx`) replaces the old
+single-page layout. Pages:
+
+- **Overview** (`/`) — filters + the events table (what used to be the whole homepage).
+- **Discover** (`/discover`) — run a new search, manage scheduled (cron) searches.
+- **Saved Lists** (`/lists`) — saved filter presets / search batches, apply or delete-with-cascade.
+- **Billing** (`/billing`) — a **static design preview only**, not wired to real billing yet (no
+  Stripe, no credit ledger, no accounts). Placeholder numbers, clearly labeled as draft.
+- **Settings** (`/settings`) — empty placeholder, pending user accounts.
+- **Super Admin** (`/admin`, disabled in the sidebar) — placeholder page with a comment that it
+  must never hold anything real before actual auth/multi-tenancy exists.
+
+The white "content panel" look isn't per-component styling — every component already used
+semantic tokens (`bg-icon-background`, `text-icon-text`, etc. — see `globals.css`) instead of
+hardcoded colors, so the light theme is one CSS scope (`.theme-panel`, wrapping `<main>` in
+`layout.tsx`) that re-points those same tokens to light values. The sidebar keeps the original
+dark values. No component needed to change for the light/dark split itself — only a few
+hardcoded status/tier/confidence badge colors (tuned for the old all-dark background) needed
+fixing separately for contrast on white.
+
 ## Already provisioned
 
 - Supabase project **event-scout** (org: Project I.C.O.N) — `yxejxwfhukfjrgkwhtil.supabase.co`

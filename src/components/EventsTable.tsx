@@ -6,14 +6,14 @@ import { ContactsModal } from "@/components/ContactsModal";
 
 const TIER_STYLES: Record<string, string> = {
   A: "bg-icon-primary-light text-icon-primary border-icon-primary",
-  B: "bg-sky-900/40 text-sky-300 border-sky-700",
+  B: "bg-sky-50 text-sky-700 border-sky-300",
   C: "bg-icon-surface text-icon-text-light border-icon-border",
 };
 
 const STATUS_STYLES: Record<string, string> = {
-  open: "bg-emerald-900/40 text-emerald-300",
-  closed: "bg-red-900/40 text-red-300",
-  watch: "bg-amber-900/40 text-amber-300",
+  open: "bg-emerald-50 text-emerald-700",
+  closed: "bg-red-50 text-red-700",
+  watch: "bg-amber-50 text-amber-700",
   unknown: "bg-icon-surface text-icon-text-light",
 };
 

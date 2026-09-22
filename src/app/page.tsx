@@ -2,13 +2,9 @@ import Image from "next/image";
 import { getSupabaseServiceClient } from "@/lib/supabase";
 import { applyEventFilters, eventsBaseQuery, hasAnyFilter, parseFilters } from "@/lib/filters";
 import { FilterBar } from "@/components/FilterBar";
-import { DiscoverPanel } from "@/components/DiscoverPanel";
-import { SchedulesPanel } from "@/components/SchedulesPanel";
-import { SavedListsPanel } from "@/components/SavedListsPanel";
 import { EventsTable } from "@/components/EventsTable";
 import { IrisExportButton } from "@/components/IrisExportButton";
-import { getSavedListsWithCounts } from "@/lib/savedLists";
-import type { ContactRecord, DiscoveryScheduleRecord, EventRecord, SavedListRecord } from "@/types/event";
+import type { ContactRecord, EventRecord } from "@/types/event";
 
 export const dynamic = "force-dynamic";
 
@@ -29,17 +25,13 @@ export default async function Home({
   let events: EventRecord[] = [];
   let sectors: string[] = [];
   let contactsByEvent: Record<string, ContactRecord[]> = {};
-  let schedules: DiscoveryScheduleRecord[] = [];
-  let savedLists: SavedListRecord[] = [];
   let latestRunId: string | null = null;
   let errorMessage: string | null = null;
 
   try {
     const supabase = getSupabaseServiceClient();
-    const [sectorsRes, schedulesRes, savedListsResult, latestRunRes] = await Promise.all([
+    const [sectorsRes, latestRunRes] = await Promise.all([
       supabase.from("events").select("sector").order("sector"),
-      supabase.from("discovery_schedules").select("*").order("created_at", { ascending: false }),
-      getSavedListsWithCounts(supabase),
       supabase
         .from("events")
         .select("discovery_run_id")
@@ -50,9 +42,6 @@ export default async function Home({
     ]);
 
     sectors = Array.from(new Set((sectorsRes.data ?? []).map((r) => r.sector))).sort();
-    if (schedulesRes.error) throw schedulesRes.error;
-    schedules = (schedulesRes.data ?? []) as DiscoveryScheduleRecord[];
-    savedLists = savedListsResult;
     latestRunId = latestRunRes.data?.discovery_run_id ?? null;
 
     // Default view (no filters/saved list/explicit "browse all" applied) shows
@@ -92,17 +81,14 @@ export default async function Home({
   const exportFiltersObj = Object.fromEntries(exportParams.entries());
 
   return (
-    <div className="min-h-screen bg-icon-background px-6 py-10 text-icon-text sm:px-10">
+    <div className="min-h-screen px-6 py-10 sm:px-10">
       <div className="mx-auto flex max-w-7xl flex-col gap-6">
         <header className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-4">
-            <Image src="/brand/icon-logo.webp" alt="Project ICON" width={140} height={50} priority />
-            <div>
-              <h1 className="text-2xl font-semibold">Event Scout</h1>
-              <p className="text-sm text-icon-text-light">
-                Speaking &amp; networking opportunity database — discovered and enriched by AI agents.
-              </p>
-            </div>
+          <div>
+            <h1 className="text-2xl font-semibold">Overview</h1>
+            <p className="text-sm text-icon-text-light">
+              Speaking &amp; networking opportunity database — discovered and enriched by AI agents.
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <a
@@ -116,18 +102,15 @@ export default async function Home({
         </header>
 
         {errorMessage && (
-          <div className="rounded-lg border border-amber-800 bg-amber-950/40 p-4 text-sm text-amber-300">
+          <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
             <p className="font-medium">Couldn&apos;t load events: {errorMessage}</p>
-            <p className="mt-1 text-amber-400/80">
+            <p className="mt-1 text-amber-700">
               Have you set up your Supabase project and run the migration + env vars yet? See README.md.
             </p>
           </div>
         )}
 
-        <DiscoverPanel />
-        <SchedulesPanel schedules={schedules} />
         <FilterBar filters={filters} sectors={sectors} latestRunId={latestRunId} />
-        <SavedListsPanel lists={savedLists} />
 
         <div className="flex items-center justify-between">
           <p className="text-xs font-semibold uppercase tracking-wide text-icon-text-light">

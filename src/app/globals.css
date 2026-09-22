@@ -14,6 +14,23 @@
   --foreground: var(--icon-text);
 }
 
+/*
+ * Every component already reads bg-icon-background / text-icon-text / etc,
+ * never a hardcoded color. So the "dark sidebar, white content" split from
+ * the redesign is done by re-pointing those same tokens inside this scope —
+ * no component needed to change. Sidebar stays on the :root (dark) values;
+ * anything wrapped in .theme-panel gets the light values instead.
+ */
+.theme-panel {
+  --icon-background: #ffffff;
+  --icon-surface: #f6f5f2;
+  --icon-border: #e5e2da;
+  --icon-text: #17181c;
+  --icon-text-light: #6b6f76;
+  --icon-blur: #ffffffcc;
+  /* --icon-primary / --icon-primary-light stay the brand gold in both scopes */
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
