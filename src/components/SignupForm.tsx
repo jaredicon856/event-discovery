@@ -123,7 +123,7 @@ export function SignupForm() {
           <div className="mt-8 hidden max-w-xl rounded-2xl border border-[#c59a48]/25 bg-white/[0.04] p-6 lg:block">
             <p className="text-sm font-semibold text-[#e5c98e]">Try one search free</p>
             <p className="mt-2 text-2xl font-semibold">Including two contact lookups.</p>
-            <p className="mt-3 text-sm text-white/60">No card required. Your results remain in your workspace after the trial.</p>
+            <p className="mt-3 text-sm text-white/60">No card required. Use it within 7 days — your results remain in your workspace after the trial.</p>
           </div>
         </div>
       </section>

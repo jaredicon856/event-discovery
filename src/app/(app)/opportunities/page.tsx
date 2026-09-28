@@ -14,6 +14,7 @@ import {
   getNonTrialCreditBalance,
 } from "@/lib/credits";
 import { formatAccountDate } from "@/lib/timezone";
+import { effectiveTrial } from "@/lib/trial";
 
 export const dynamic = "force-dynamic";
 
@@ -89,7 +90,7 @@ export default async function OpportunitiesPage({
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
-    service.from("trial_entitlements").select("discovery_remaining, contact_lookups_remaining").eq("profile_id", profile.id).maybeSingle(),
+    service.from("trial_entitlements").select("discovery_remaining, contact_lookups_remaining, expires_at").eq("profile_id", profile.id).maybeSingle(),
     getCreditBalances(service, profile.id),
   ]);
 
@@ -104,8 +105,9 @@ export default async function OpportunitiesPage({
   const isOwner = profile.role === "super_admin";
   const canSchedule = canScheduleSearch(profile.role, Boolean(subscription?.current_period_end));
   const nonTrialCredits = getNonTrialCreditBalance(creditBalances);
-  const trialDiscoveryRemaining = trial?.discovery_remaining ?? 0;
-  const trialContactsRemaining = trial?.contact_lookups_remaining ?? 0;
+  const activeTrial = effectiveTrial(trial);
+  const trialDiscoveryRemaining = activeTrial?.discoveryRemaining ?? 0;
+  const trialContactsRemaining = activeTrial?.contactsRemaining ?? 0;
   const contactCreditBudget =
     trialDiscoveryRemaining > 0
       ? trialContactsRemaining * 20 + nonTrialCredits
@@ -229,7 +231,8 @@ export default async function OpportunitiesPage({
               canSchedule={canSchedule}
               defaultContactLimit={Math.min(7, maxContactLookups)}
               maxContactLookups={maxContactLookups}
-              trialSearchRemaining={trial?.discovery_remaining}
+              trialSearchRemaining={activeTrial?.discoveryRemaining}
+              trialDaysLeft={activeTrial?.daysLeft ?? null}
               nonTrialCredits={nonTrialCredits}
               isOwner={isOwner}
             />

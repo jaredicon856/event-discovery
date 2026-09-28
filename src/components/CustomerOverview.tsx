@@ -3,6 +3,7 @@ import { requireActiveUser } from "@/lib/access";
 import { getCreditBalances } from "@/lib/credits";
 import { AnimatedGreeting } from "@/components/AnimatedGreeting";
 import { formatAccountDate } from "@/lib/timezone";
+import { effectiveTrial, trialDaysLeftLabel } from "@/lib/trial";
 
 export async function CustomerOverview() {
   const { profile, service } = await requireActiveUser();
@@ -15,7 +16,7 @@ export async function CustomerOverview() {
     .maybeSingle();
 
   const periodStart = subscription?.current_period_start ?? "1970-01-01T00:00:00.000Z";
-  const [balances, { data: recentRuns }, { data: cycleRuns }, { data: ledger }, { data: operations }, { data: trial }] =
+  const [balances, { data: recentRuns }, { data: cycleRuns }, { data: ledger }, { data: operations }, { data: trialRow }] =
     await Promise.all([
       getCreditBalances(service, profile.id),
       service
@@ -44,10 +45,11 @@ export async function CustomerOverview() {
         .gte("created_at", periodStart),
       service
         .from("trial_entitlements")
-        .select("discovery_remaining, contact_lookups_remaining")
+        .select("discovery_remaining, contact_lookups_remaining, expires_at")
         .eq("profile_id", profile.id)
         .maybeSingle(),
     ]);
+  const trial = effectiveTrial(trialRow);
 
   const allCycleRuns = cycleRuns ?? [];
   const creditsUsed = (operations ?? [])
@@ -60,7 +62,7 @@ export async function CustomerOverview() {
     ? subscription.access_ends_at ?? subscription.current_period_end
     : subscription?.current_period_end;
   const hasPaidPlan = Boolean(subscription && ["active", "past_due"].includes(subscription.status));
-  const trialComplete = !hasPaidPlan && (!trial || trial.discovery_remaining === 0);
+  const trialComplete = !hasPaidPlan && (!trial || trial.discoveryRemaining === 0);
   const requiresPlan = trialComplete && balances.total < 20;
   const displayName = profile.display_name || profile.full_name || profile.email.split("@")[0];
   const recentSearches = recentRuns ?? [];
@@ -103,7 +105,7 @@ export async function CustomerOverview() {
           <Link href="/billing" className="premium-card reveal-card flex flex-col justify-between p-7" style={{ "--reveal-index": 1 } as React.CSSProperties}>
             <p className="premium-eyebrow">Current plan</p>
             <p className="mt-8 text-3xl font-semibold capitalize tracking-[-.04em]">
-              {hasPaidPlan ? subscription?.plan : trial ? (trialComplete ? "Trial complete" : "Free trial") : "No active plan"}
+              {hasPaidPlan ? subscription?.plan : trial ? (trial.expired ? "Trial expired" : trialComplete ? "Trial complete" : "Free trial") : "No active plan"}
             </p>
             <p className="mt-3 text-sm leading-6 text-icon-text-light">
               {hasPaidPlan && subscription
@@ -114,7 +116,7 @@ export async function CustomerOverview() {
                     : "Choose a plan to run discovery and contact research."
                   : trialComplete
                   ? "Your results remain available. Choose a plan when you are ready to research more."
-                  : `${trial?.discovery_remaining ?? 0} search and ${trial?.contact_lookups_remaining ?? 0} contact lookups remaining.`}
+                  : `${trial.discoveryRemaining} search and ${trial.contactsRemaining} contact lookups remaining · ${trialDaysLeftLabel(trial.daysLeft)}.`}
             </p>
             {hasPaidPlan && nextDate && (
               <p className="mt-7 border-t border-icon-border pt-4 text-sm">

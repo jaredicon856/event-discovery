@@ -216,7 +216,7 @@ export async function OwnerOverview() {
           <SegmentCard
             title="Trial ending"
             count={snapshot.segments.trialEnding.length}
-            hint="Low trial searches or contact lookups left"
+            hint="Expires within 2 days or free search used"
             clients={snapshot.segments.trialEnding}
             index={4}
           />

@@ -20,10 +20,49 @@ describe("owner billing classification", () => {
       periodEnd: null,
       trialDiscoveryRemaining: 1,
       trialContactsRemaining: 2,
+      trialExpiresAt: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString(),
     });
     assert.equal(trial.isNew, true);
-    assert.equal(trial.isTrialEnding, true);
-    assert.equal(trial.status, "trial_ending");
+    assert.equal(trial.isTrialEnding, false);
+    assert.equal(trial.status, "trial");
+
+    const expiringTrial = classifyOwnerClient({
+      createdAt: recent,
+      planId: null,
+      planStatus: null,
+      billingInterval: null,
+      periodEnd: null,
+      trialDiscoveryRemaining: 1,
+      trialContactsRemaining: 2,
+      trialExpiresAt: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString(),
+    });
+    assert.equal(expiringTrial.isTrialEnding, true);
+    assert.equal(expiringTrial.status, "trial_ending");
+
+    const searchUsed = classifyOwnerClient({
+      createdAt: recent,
+      planId: null,
+      planStatus: null,
+      billingInterval: null,
+      periodEnd: null,
+      trialDiscoveryRemaining: 0,
+      trialContactsRemaining: 2,
+      trialExpiresAt: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString(),
+    });
+    assert.equal(searchUsed.status, "trial_ending");
+
+    const expired = classifyOwnerClient({
+      createdAt: recent,
+      planId: null,
+      planStatus: null,
+      billingInterval: null,
+      periodEnd: null,
+      trialDiscoveryRemaining: 1,
+      trialContactsRemaining: 2,
+      trialExpiresAt: new Date(Date.now() - 60 * 1000).toISOString(),
+    });
+    assert.equal(expired.isTrialEnding, false);
+    assert.equal(expired.status, "trial_expired");
 
     const annual = classifyOwnerClient({
       createdAt: recent,

@@ -4,14 +4,16 @@ import { listCustomerInvoices } from "@/lib/stripeInvoices";
 
 export const NEW_ACCOUNT_DAYS = 14;
 export const MONTHLY_ENDING_DAYS = 7;
-export const TRIAL_LOW_DISCOVERY = 1;
+export const TRIAL_LOW_DISCOVERY = 0;
 export const TRIAL_LOW_CONTACTS = 1;
+export const TRIAL_EXPIRING_DAYS = 2;
 
 export type OwnerClientStatus =
   | "active_plan"
   | "trial"
   | "trial_ending"
   | "trial_complete"
+  | "trial_expired"
   | "no_plan"
   | "past_due"
   | "canceled";
@@ -33,6 +35,7 @@ export interface OwnerClientRow {
   periodEnd: string | null;
   trialDiscoveryRemaining: number | null;
   trialContactsRemaining: number | null;
+  trialExpiresAt: string | null;
   aiSpendUsd: number;
   status: OwnerClientStatus;
   isNew: boolean;
@@ -82,6 +85,7 @@ type TrialRow = {
   profile_id: string;
   discovery_remaining: number;
   contact_lookups_remaining: number;
+  expires_at: string | null;
 };
 
 type UsageRow = {
@@ -125,6 +129,7 @@ export function classifyOwnerClient(input: {
   periodEnd: string | null;
   trialDiscoveryRemaining: number | null;
   trialContactsRemaining: number | null;
+  trialExpiresAt?: string | null;
   now?: Date;
 }): Pick<
   OwnerClientRow,
@@ -132,8 +137,10 @@ export function classifyOwnerClient(input: {
 > {
   const hasTrial =
     input.trialDiscoveryRemaining != null || input.trialContactsRemaining != null;
-  const discovery = input.trialDiscoveryRemaining ?? 0;
-  const contacts = input.trialContactsRemaining ?? 0;
+  const trialDaysLeft = daysFromNow(input.trialExpiresAt);
+  const trialExpired = trialDaysLeft != null && trialDaysLeft <= 0;
+  const discovery = trialExpired ? 0 : input.trialDiscoveryRemaining ?? 0;
+  const contacts = trialExpired ? 0 : input.trialContactsRemaining ?? 0;
   const trialRemaining = discovery + contacts;
   const paidLive = Boolean(
     input.planId && input.planStatus && ["active", "past_due"].includes(input.planStatus)
@@ -143,6 +150,7 @@ export function classifyOwnerClient(input: {
   if (paidLive && input.planStatus === "past_due") status = "past_due";
   else if (paidLive) status = "active_plan";
   else if (input.planStatus === "canceled") status = "canceled";
+  else if (hasTrial && trialExpired) status = "trial_expired";
   else if (hasTrial && trialRemaining <= 0) status = "trial_complete";
   else if (hasTrial) status = "trial";
 
@@ -150,7 +158,9 @@ export function classifyOwnerClient(input: {
     !paidLive &&
     hasTrial &&
     trialRemaining > 0 &&
-    (discovery <= TRIAL_LOW_DISCOVERY || contacts <= TRIAL_LOW_CONTACTS);
+    (discovery <= TRIAL_LOW_DISCOVERY ||
+      contacts <= TRIAL_LOW_CONTACTS ||
+      (trialDaysLeft != null && trialDaysLeft <= TRIAL_EXPIRING_DAYS));
 
   if (isTrialEnding) status = "trial_ending";
 
@@ -211,7 +221,7 @@ export async function loadOwnerBillingSnapshot(
         .order("created_at", { ascending: false }),
       supabase
         .from("trial_entitlements")
-        .select("profile_id, discovery_remaining, contact_lookups_remaining"),
+        .select("profile_id, discovery_remaining, contact_lookups_remaining, expires_at"),
       supabase
         .from("ai_usage")
         .select("profile_id, estimated_cost_usd, created_at")
@@ -262,6 +272,7 @@ export async function loadOwnerBillingSnapshot(
       periodEnd: sub?.current_period_end ?? null,
       trialDiscoveryRemaining: trial?.discovery_remaining ?? null,
       trialContactsRemaining: trial?.contact_lookups_remaining ?? null,
+      trialExpiresAt: trial?.expires_at ?? null,
     });
 
     return {
@@ -281,6 +292,7 @@ export async function loadOwnerBillingSnapshot(
       periodEnd: sub?.current_period_end ?? null,
       trialDiscoveryRemaining: trial?.discovery_remaining ?? null,
       trialContactsRemaining: trial?.contact_lookups_remaining ?? null,
+      trialExpiresAt: trial?.expires_at ?? null,
       aiSpendUsd: spendLifetime.get(profile.id) ?? 0,
       ...flags,
     };
@@ -336,6 +348,8 @@ export function ownerClientStatusLabel(status: OwnerClientStatus): string {
       return "Trial ending";
     case "trial_complete":
       return "Trial complete";
+    case "trial_expired":
+      return "Trial expired";
     case "past_due":
       return "Past due";
     case "canceled":

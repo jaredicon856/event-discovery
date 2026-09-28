@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   MONTHLY_ENDING_DAYS,
   NEW_ACCOUNT_DAYS,
+  TRIAL_EXPIRING_DAYS,
   formatUsd,
   ownerClientStatusLabel,
   type OwnerBillingSnapshot,
@@ -195,9 +196,9 @@ export function OwnerBillingPanel({ snapshot }: { snapshot: OwnerBillingSnapshot
           />
           <SegmentList
             title="Trial ending"
-            hint="Low discovery or contact allowance left"
+            hint={`Expires within ${TRIAL_EXPIRING_DAYS} days or free search used`}
             clients={segments.trialEnding}
-            empty="No trials near exhaustion."
+            empty="No trials ending soon."
           />
           <SegmentList
             title="Annual plans"
@@ -289,7 +290,9 @@ export function OwnerBillingPanel({ snapshot }: { snapshot: OwnerBillingSnapshot
                     <td className="px-4 py-4 text-icon-text-light">
                       {client.periodEnd
                         ? formatAccountDate(client.periodEnd)
-                        : formatAccountDate(client.createdAt)}
+                        : client.trialExpiresAt && !client.planId
+                          ? `Trial ends ${formatAccountDate(client.trialExpiresAt)}`
+                          : formatAccountDate(client.createdAt)}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <Link

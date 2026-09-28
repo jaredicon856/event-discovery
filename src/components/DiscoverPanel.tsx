@@ -12,12 +12,14 @@ import {
   type OpportunityTypeId,
 } from "@/lib/searchCriteria";
 import { canStartDiscovery } from "@/lib/credits";
+import { trialDaysLeftLabel } from "@/lib/trial";
 
 export function DiscoverPanel({
   canSchedule,
   defaultContactLimit,
   maxContactLookups,
   trialSearchRemaining,
+  trialDaysLeft = null,
   nonTrialCredits,
   isOwner,
 }: {
@@ -25,6 +27,7 @@ export function DiscoverPanel({
   defaultContactLimit: number;
   maxContactLookups: number;
   trialSearchRemaining?: number;
+  trialDaysLeft?: number | null;
   nonTrialCredits: number;
   isOwner: boolean;
 }) {
@@ -279,7 +282,11 @@ export function DiscoverPanel({
           : `This search can use up to ${creditCap} credits: 20 for opportunities and 20 for each selected contact search. Other suggestions will not use contact credits unless you choose them.`}
       </p>
       {isOwner ? null : trialSearchRemaining !== undefined && (
-        <p className="text-xs font-semibold text-icon-primary">Free trial: {trialSearchRemaining} opportunity search remaining.</p>
+        <p className="text-xs font-semibold text-icon-primary">
+          {trialDaysLeft === 0
+            ? "Your free trial has expired."
+            : `Free trial: ${trialSearchRemaining} opportunity search remaining${trialDaysLeft ? ` · ${trialDaysLeftLabel(trialDaysLeft)}` : ""}.`}
+        </p>
       )}
           </div>
         </aside>
