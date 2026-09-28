@@ -31,6 +31,7 @@ yarn-error.log*
 
 # local tooling
 .claude/
+supabase/.temp/
 
 # typescript
 *.tsbuildinfo

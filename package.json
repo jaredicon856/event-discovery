@@ -2,20 +2,34 @@
   "name": "event-scout",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "seed": "tsx scripts/seed-events.ts"
+    "test": "tsx --test tests/*.test.ts",
+    "test:integration": "RUN_DATABASE_INTEGRATION=1 tsx --test tests/database.integration.test.ts",
+    "test:stripe": "RUN_STRIPE_LIFECYCLE=1 tsx scripts/verify-stripe-lifecycle.ts",
+    "test:stripe-generated": "RUN_STRIPE_GENERATED_LIFECYCLE=1 tsx scripts/verify-stripe-generated-lifecycle.ts",
+    "seed": "tsx scripts/seed-events.ts",
+    "owner:bootstrap": "tsx scripts/bootstrap-owner.ts",
+    "worker:discovery": "tsx scripts/process-discovery-worker.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.109.0",
+    "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.110.0",
-    "next": "16.2.9",
+    "next": "^16.3.6",
     "pdf-lib": "^1.17.1",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "resend": "^6.28.1",
+    "server-only": "^0.0.1",
+    "sharp": "^0.35.4",
+    "stripe": "^22.6.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -25,7 +39,7 @@
     "csv-parse": "^7.0.0",
     "dotenv": "^17.4.2",
     "eslint": "^9",
-    "eslint-config-next": "16.2.9",
+    "eslint-config-next": "^16.3.6",
     "tailwindcss": "^4",
     "tsx": "^4.22.4",
     "typescript": "^5"
