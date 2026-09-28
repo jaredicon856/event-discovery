@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseServiceClient } from "@/lib/supabase";
+import { accessErrorResponse, requireActiveUser } from "@/lib/access";
 import { applyEventFilters, eventsBaseQuery, parseFilters } from "@/lib/filters";
 import type { ContactRecord, EventRecord } from "@/types/event";
 
@@ -36,9 +36,53 @@ function csvEscape(value: unknown): string {
 }
 
 export async function GET(request: NextRequest) {
+  let context;
+  try {
+    context = await requireActiveUser();
+  } catch (error) {
+    return accessErrorResponse(error) ?? NextResponse.json({ error: "Authorization failed" }, { status: 500 });
+  }
   const filters = parseFilters(request.nextUrl.searchParams);
-  const supabase = getSupabaseServiceClient();
-  const query = applyEventFilters(eventsBaseQuery(supabase), filters);
+  const supabase = context.service;
+  let ownedRunEventIds: string[] = [];
+  if (filters.runId) {
+    const { data: run } = await supabase
+      .from("discovery_runs")
+      .select("id")
+      .eq("id", filters.runId)
+      .eq("profile_id", context.profile.id)
+      .eq("run_kind", "customer")
+      .maybeSingle();
+    if (!run) return NextResponse.json({ error: "Discovery run not found" }, { status: 404 });
+    const { data: links } = await supabase
+      .from("discovery_run_events")
+      .select("event_id")
+      .eq("discovery_run_id", run.id);
+    ownedRunEventIds = (links ?? []).map((link) => link.event_id);
+  } else {
+    const { data: runs } = await supabase
+      .from("discovery_runs")
+      .select("id")
+      .eq("profile_id", context.profile.id)
+      .eq("run_kind", "customer");
+    const runIds = (runs ?? []).map((run) => run.id);
+    const { data: links } = runIds.length
+      ? await supabase
+          .from("discovery_run_events")
+          .select("event_id")
+          .in("discovery_run_id", runIds)
+      : { data: [] };
+    ownedRunEventIds = [...new Set((links ?? []).map((link) => link.event_id))];
+  }
+  if (ownedRunEventIds.length === 0) {
+    return new NextResponse(`${EVENT_COLUMNS.join(",")}\n`, {
+      headers: { "Content-Type": "text/csv; charset=utf-8" },
+    });
+  }
+  const query = applyEventFilters(
+    eventsBaseQuery(supabase).in("id", ownedRunEventIds),
+    { ...filters, runId: undefined }
+  );
   const { data, error } = await query;
 
   if (error) {
@@ -48,19 +92,24 @@ export async function GET(request: NextRequest) {
   const rows = (data ?? []) as EventRecord[];
   const eventIds = rows.map((r) => r.id);
 
-  let contactsByEvent: Record<string, ContactRecord[]> = {};
+  const contactsByEvent: Record<string, ContactRecord[]> = {};
   if (eventIds.length > 0) {
-    const { data: contacts, error: contactsError } = await supabase
-      .from("contacts")
-      .select("*")
+    const { data: contactLinks, error: linksError } = await supabase
+      .from("customer_event_contacts")
+      .select("event_id, contact_id")
+      .eq("profile_id", context.profile.id)
       .in("event_id", eventIds);
-    if (contactsError) {
-      return NextResponse.json({ error: contactsError.message }, { status: 500 });
+    if (linksError) return NextResponse.json({ error: linksError.message }, { status: 500 });
+    const contactIds = (contactLinks ?? []).map((link) => link.contact_id);
+    const { data: contacts, error: contactsError } = contactIds.length
+      ? await supabase.from("contacts").select("*").in("id", contactIds)
+      : { data: [], error: null };
+    if (contactsError) return NextResponse.json({ error: contactsError.message }, { status: 500 });
+    const byId = new Map((contacts ?? []).map((contact) => [contact.id, contact as ContactRecord]));
+    for (const link of contactLinks ?? []) {
+      const contact = byId.get(link.contact_id);
+      if (contact) (contactsByEvent[link.event_id] ??= []).push(contact);
     }
-    contactsByEvent = (contacts ?? []).reduce<Record<string, ContactRecord[]>>((acc, c) => {
-      (acc[c.event_id] ??= []).push(c as ContactRecord);
-      return acc;
-    }, {});
   }
 
   const maxContacts = Math.max(0, ...Object.values(contactsByEvent).map((c) => c.length));

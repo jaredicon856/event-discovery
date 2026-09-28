@@ -1,60 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseServiceClient } from "@/lib/supabase";
-import { applyEventFilters, hasAnyFilter } from "@/lib/filters";
-import { savedListToFilters } from "@/lib/savedLists";
-import { assertCronAuthorized, UnauthorizedError } from "@/lib/auth";
-import type { SavedListRecord } from "@/types/event";
+import { accessErrorResponse, requireActiveUser } from "@/lib/access";
 
-/**
- * Deletes the saved list AND every event currently matching its filter
- * criteria — this is a real, permanent data deletion, not just removing the
- * saved shortcut. The UI must confirm with the user (and show the event
- * count) before calling this.
- */
-export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+/** Deletes only the member-owned shortcut. Shared events/contacts are immutable here. */
+export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  let context;
   try {
-    assertCronAuthorized(request);
-  } catch (e) {
-    if (e instanceof UnauthorizedError) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    throw e;
+    context = await requireActiveUser();
+  } catch (error) {
+    return accessErrorResponse(error) ?? NextResponse.json({ error: "Authorization failed" }, { status: 500 });
   }
 
   const { id } = await params;
-  const supabase = getSupabaseServiceClient();
-
-  const { data: list, error: fetchError } = await supabase
+  const { data, error } = await context.service
     .from("saved_lists")
-    .select("*")
+    .delete()
     .eq("id", id)
-    .single();
-
-  if (fetchError || !list) {
-    return NextResponse.json({ error: fetchError?.message ?? "List not found" }, { status: 404 });
+    .eq("profile_id", context.profile.id)
+    .select("id")
+    .maybeSingle();
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
-
-  const row = list as SavedListRecord;
-  const filters = savedListToFilters(row);
-
-  if (!hasAnyFilter(filters)) {
-    return NextResponse.json(
-      { error: "Refusing to delete: this list has no filter criteria, which would match every event" },
-      { status: 400 }
-    );
-  }
-
-  const deleteQuery = applyEventFilters(supabase.from("events").delete().select("id"), filters);
-  const { data: deletedEvents, error: deleteError } = await deleteQuery;
-
-  if (deleteError) {
-    return NextResponse.json({ error: deleteError.message }, { status: 500 });
-  }
-
-  const { error: listDeleteError } = await supabase.from("saved_lists").delete().eq("id", id);
-  if (listDeleteError) {
-    return NextResponse.json({ error: listDeleteError.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ deletedList: true, deletedEvents: deletedEvents?.length ?? 0 });
+  if (!data) return NextResponse.json({ error: "Saved list not found" }, { status: 404 });
+  return NextResponse.json({ deletedList: true });
 }

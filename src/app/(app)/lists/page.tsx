@@ -1,12 +1,12 @@
-import { getSupabaseServiceClient } from "@/lib/supabase";
+import { requireActiveUser } from "@/lib/access";
 import { getSavedListsWithCounts } from "@/lib/savedLists";
 import { SavedListsPanel } from "@/components/SavedListsPanel";
 
 export const dynamic = "force-dynamic";
 
 export default async function ListsPage() {
-  const supabase = getSupabaseServiceClient();
-  const lists = await getSavedListsWithCounts(supabase);
+  const { service, profile } = await requireActiveUser();
+  const lists = await getSavedListsWithCounts(service, profile.id);
 
   return (
     <div className="min-h-screen px-6 py-10 sm:px-10">
@@ -14,8 +14,8 @@ export default async function ListsPage() {
         <header>
           <h1 className="text-2xl font-semibold">Saved Lists</h1>
           <p className="text-sm text-icon-text-light">
-            Named filter presets and saved search batches. Click a list to apply it on the Overview
-            page, or clear it (and its matching events) entirely.
+            Organize shortcuts to selected My Opportunities views and search batches. Removing a
+            list never deletes the underlying opportunity results.
           </p>
         </header>
 

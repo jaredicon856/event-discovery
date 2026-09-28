@@ -1,29 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseServiceClient } from "@/lib/supabase";
+import { accessErrorResponse, requireActiveUser } from "@/lib/access";
 import { hasAnyFilter, type EventFilters } from "@/lib/filters";
 import { getSavedListsWithCounts } from "@/lib/savedLists";
-import { assertCronAuthorized, UnauthorizedError } from "@/lib/auth";
+import { featureDisabledResponse } from "@/lib/featureFlags";
 
 export async function GET() {
-  const supabase = getSupabaseServiceClient();
   try {
-    const lists = await getSavedListsWithCounts(supabase);
+    const { service, profile } = await requireActiveUser();
+    const lists = await getSavedListsWithCounts(service, profile.id);
     return NextResponse.json({ lists });
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to load saved lists";
+  } catch (error) {
+    const accessResponse = accessErrorResponse(error);
+    if (accessResponse) return accessResponse;
+    const message = error instanceof Error ? error.message : "Failed to load saved lists";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
+  let context;
   try {
-    assertCronAuthorized(request);
-  } catch (e) {
-    if (e instanceof UnauthorizedError) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    throw e;
+    context = await requireActiveUser();
+  } catch (error) {
+    return accessErrorResponse(error) ?? NextResponse.json({ error: "Authorization failed" }, { status: 500 });
   }
+  const disabled = await featureDisabledResponse(context.service, "saved_lists", context.profile.id);
+  if (disabled) return disabled;
 
   let body: {
     name?: string;
@@ -61,11 +63,23 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   }
+  if (filters.runId) {
+    const { data: ownedRun } = await context.service
+      .from("discovery_runs")
+      .select("id")
+      .eq("id", filters.runId)
+      .eq("profile_id", context.profile.id)
+      .eq("run_kind", "customer")
+      .maybeSingle();
+    if (!ownedRun) {
+      return NextResponse.json({ error: "Discovery run not found" }, { status: 404 });
+    }
+  }
 
-  const supabase = getSupabaseServiceClient();
-  const { data, error } = await supabase
+  const { data, error } = await context.service
     .from("saved_lists")
     .insert({
+      profile_id: context.profile.id,
       name: body.name,
       sector: filters.sector ?? null,
       tier: filters.tier ?? null,

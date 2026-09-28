@@ -35,6 +35,8 @@ export interface EventRecord {
   raw_extract: unknown;
   created_at: string;
   updated_at: string;
+  match_kind?: "exact" | "related";
+  mismatch_reasons?: string[];
 }
 
 export interface ContactRecord {

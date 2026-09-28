@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { SECTOR_ALIASES } from "@/lib/searchCriteria";
 
 export interface EventFilters {
   sector?: string;
@@ -25,7 +26,16 @@ export function parseFilters(searchParams: URLSearchParams): EventFilters {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function applyEventFilters(query: any, filters: EventFilters) {
-  if (filters.sector) query = query.eq("sector", filters.sector);
+  if (filters.sector) {
+    // events.sector is free text written by extraction (e.g. "Financial
+    // Services - Anti-Fraud/Forensic Accounting"), never one of the 10
+    // canonical sector ids — an exact match here almost never matched
+    // anything real. Match via the same alias list search-time validation
+    // uses, so "Financial services" in the filter bar means the same thing
+    // it meant when the search itself was run.
+    const aliases = SECTOR_ALIASES[filters.sector] ?? [filters.sector.toLowerCase().replaceAll("_", " ")];
+    query = query.or(aliases.map((alias) => `sector.ilike.%${alias}%`).join(","));
+  }
   if (filters.tier) query = query.eq("visibility_tier", filters.tier);
   if (filters.status) query = query.eq("status", filters.status);
   if (filters.from) query = query.gte("event_start", filters.from);

@@ -25,7 +25,7 @@ function listHref(list: SavedListRecord): string {
   if (list.to_date) params.set("to", list.to_date);
   if (list.q) params.set("q", list.q);
   if (list.discovery_run_id) params.set("runId", list.discovery_run_id);
-  return `/?${params.toString()}`;
+  return `/opportunities?${params.toString()}`;
 }
 
 export function SavedListsPanel({ lists }: { lists: SavedListRecord[] }) {
@@ -33,10 +33,8 @@ export function SavedListsPanel({ lists }: { lists: SavedListRecord[] }) {
   const [busy, setBusy] = useState<Record<string, boolean>>({});
 
   async function remove(list: SavedListRecord) {
-    const count = list.eventCount ?? 0;
     const confirmed = window.confirm(
-      `Delete "${list.name}"? This will permanently delete ${count} event${count === 1 ? "" : "s"} matching ` +
-        `${filterSummary(list)}, along with any contacts found for them. This cannot be undone.`
+      `Delete the saved list "${list.name}"? Shared opportunities and contacts will not be deleted.`
     );
     if (!confirmed) return;
 

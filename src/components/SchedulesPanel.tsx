@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { DiscoveryScheduleRecord } from "@/types/event";
+import { formatAccountDateTime } from "@/lib/timezone";
 
 export function SchedulesPanel({ schedules }: { schedules: DiscoveryScheduleRecord[] }) {
   const router = useRouter();
@@ -59,7 +60,7 @@ export function SchedulesPanel({ schedules }: { schedules: DiscoveryScheduleReco
               </p>
               <p className="text-xs font-medium text-icon-text-light">
                 {s.last_run_at
-                  ? `Last run ${new Date(s.last_run_at).toLocaleString()} — ${s.last_run_summary ?? ""}`
+                  ? `Last run ${formatAccountDateTime(s.last_run_at)} — ${s.last_run_summary ?? ""}`
                   : "Not run yet"}
               </p>
             </div>

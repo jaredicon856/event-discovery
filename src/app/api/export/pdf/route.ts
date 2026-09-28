@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseServiceClient } from "@/lib/supabase";
+import { accessErrorResponse, requireActiveUser } from "@/lib/access";
+import { featureDisabledResponse } from "@/lib/featureFlags";
 import { applyEventFilters, eventsBaseQuery, parseFilters } from "@/lib/filters";
 import { buildEventScoutPdf, sanitizeFilenamePart } from "@/lib/pdf";
 import { attachDocumentsToIris } from "@/lib/iris";
-import { assertCronAuthorized, UnauthorizedError } from "@/lib/auth";
 import type { ContactRecord, EventRecord } from "@/types/event";
 
 export const maxDuration = 60;
@@ -14,6 +14,8 @@ interface RequestBody {
   clientEmail?: string;
   clientName?: string;
   filters?: Record<string, string>;
+  /** Opt-in only. PDF export is a standalone download unless this is set. */
+  attachToIris?: boolean;
 }
 
 function buildFilterSummary(filters: Record<string, string>): string {
@@ -32,14 +34,15 @@ function buildFilterSummary(filters: Record<string, string>): string {
 }
 
 export async function POST(request: NextRequest) {
+  let context;
   try {
-    assertCronAuthorized(request);
-  } catch (e) {
-    if (e instanceof UnauthorizedError) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    throw e;
+    context = await requireActiveUser();
+  } catch (error) {
+    return accessErrorResponse(error) ?? NextResponse.json({ error: "Authorization failed" }, { status: 500 });
   }
+
+  const disabled = await featureDisabledResponse(context.service, "pdf_export", context.profile.id);
+  if (disabled) return disabled;
 
   let body: RequestBody;
   try {
@@ -49,40 +52,81 @@ export async function POST(request: NextRequest) {
   }
 
   const clientEmail = body.clientEmail?.trim();
-  if (!clientEmail) {
-    return NextResponse.json({ error: "clientEmail is required" }, { status: 400 });
-  }
-  if (!EMAIL_RE.test(clientEmail)) {
-    return NextResponse.json({ error: "clientEmail doesn't look like a valid email address" }, { status: 400 });
+  const attachToIris = body.attachToIris === true;
+  if (attachToIris && (!clientEmail || !EMAIL_RE.test(clientEmail))) {
+    return NextResponse.json(
+      { error: "A valid clientEmail is required to attach the export to Iris" },
+      { status: 400 }
+    );
   }
 
   const clientName = body.clientName?.trim() || undefined;
   const rawFilters = body.filters ?? {};
 
   try {
-    const supabase = getSupabaseServiceClient();
+    const supabase = context.service;
     const filters = parseFilters(new URLSearchParams(rawFilters));
-
-    const { data: eventRows, error: eventsError } = await applyEventFilters(
-      eventsBaseQuery(supabase),
-      filters
+    let ownedEventIds: string[] = [];
+    if (filters.runId) {
+      const { data: run } = await supabase
+        .from("discovery_runs")
+        .select("id")
+        .eq("id", filters.runId)
+        .eq("profile_id", context.profile.id)
+        .eq("run_kind", "customer")
+        .maybeSingle();
+      if (!run) return NextResponse.json({ error: "Discovery run not found" }, { status: 404 });
+      const { data: links } = await supabase
+        .from("discovery_run_events")
+        .select("event_id")
+        .eq("discovery_run_id", run.id);
+      ownedEventIds = (links ?? []).map((link) => link.event_id);
+    } else {
+      const { data: runs } = await supabase
+        .from("discovery_runs")
+        .select("id")
+        .eq("profile_id", context.profile.id)
+        .eq("run_kind", "customer");
+      const runIds = (runs ?? []).map((run) => run.id);
+      const { data: links } = runIds.length
+        ? await supabase
+            .from("discovery_run_events")
+            .select("event_id")
+            .in("discovery_run_id", runIds)
+        : { data: [] };
+      ownedEventIds = [...new Set((links ?? []).map((link) => link.event_id))];
+    }
+    if (ownedEventIds.length === 0) {
+      return NextResponse.json({ error: "Your workspace has no opportunities to export" }, { status: 400 });
+    }
+    const query = applyEventFilters(
+      eventsBaseQuery(supabase).in("id", ownedEventIds),
+      { ...filters, runId: undefined }
     );
+    const { data: eventRows, error: eventsError } = await query;
     if (eventsError) throw new Error(eventsError.message);
 
     const events = (eventRows ?? []) as EventRecord[];
     const eventIds = events.map((e) => e.id);
 
-    let contactsByEvent: Record<string, ContactRecord[]> = {};
+    const contactsByEvent: Record<string, ContactRecord[]> = {};
     if (eventIds.length > 0) {
-      const { data: contacts, error: contactsError } = await supabase
-        .from("contacts")
-        .select("*")
+      const { data: contactLinks, error: linksError } = await supabase
+        .from("customer_event_contacts")
+        .select("event_id, contact_id")
+        .eq("profile_id", context.profile.id)
         .in("event_id", eventIds);
+      if (linksError) throw new Error(linksError.message);
+      const contactIds = (contactLinks ?? []).map((link) => link.contact_id);
+      const { data: contacts, error: contactsError } = contactIds.length
+        ? await supabase.from("contacts").select("*").in("id", contactIds)
+        : { data: [], error: null };
       if (contactsError) throw new Error(contactsError.message);
-      contactsByEvent = (contacts ?? []).reduce<Record<string, ContactRecord[]>>((acc, c) => {
-        (acc[c.event_id] ??= []).push(c as ContactRecord);
-        return acc;
-      }, {});
+      const byId = new Map((contacts ?? []).map((contact) => [contact.id, contact as ContactRecord]));
+      for (const link of contactLinks ?? []) {
+        const contact = byId.get(link.contact_id);
+        if (contact) (contactsByEvent[link.event_id] ??= []).push(contact);
+      }
     }
 
     const pdfBytes = await buildEventScoutPdf(events, contactsByEvent, {
@@ -91,9 +135,18 @@ export async function POST(request: NextRequest) {
     });
     const pdfBase64 = Buffer.from(pdfBytes).toString("base64");
 
-    const namePart = sanitizeFilenamePart(clientName || clientEmail);
+    const namePart = sanitizeFilenamePart(
+      clientName ||
+        clientEmail ||
+        context.profile.display_name ||
+        context.profile.full_name ||
+        "opportunities"
+    );
     const filename = `EventScout-${namePart}.pdf`;
-    const generatedAt = new Date().toISOString();
+
+    if (!attachToIris || !clientEmail) {
+      return NextResponse.json({ pdfBase64, filename, eventCount: events.length });
+    }
 
     const irisResult = await attachDocumentsToIris({
       clientEmail,
@@ -104,7 +157,7 @@ export async function POST(request: NextRequest) {
           filename,
           mimeType: "application/pdf",
           base64: pdfBase64,
-          generatedAt,
+          generatedAt: new Date().toISOString(),
         },
       ],
     });

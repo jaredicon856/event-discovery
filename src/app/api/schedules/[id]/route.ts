@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseServiceClient } from "@/lib/supabase";
-import { assertCronAuthorized, UnauthorizedError } from "@/lib/auth";
+import { accessErrorResponse, requireActiveUser } from "@/lib/access";
+import { featureDisabledResponse } from "@/lib/featureFlags";
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  let context;
   try {
-    assertCronAuthorized(request);
-  } catch (e) {
-    if (e instanceof UnauthorizedError) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    throw e;
+    context = await requireActiveUser();
+  } catch (error) {
+    return accessErrorResponse(error) ?? NextResponse.json({ error: "Authorization failed" }, { status: 500 });
   }
 
   const { id } = await params;
@@ -23,12 +21,16 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (typeof body.enabled !== "boolean") {
     return NextResponse.json({ error: "enabled (boolean) is required" }, { status: 400 });
   }
+  if (body.enabled) {
+    const disabled = await featureDisabledResponse(context.service, "scheduling", context.profile.id);
+    if (disabled) return disabled;
+  }
 
-  const supabase = getSupabaseServiceClient();
-  const { data, error } = await supabase
+  const { data, error } = await context.service
     .from("discovery_schedules")
     .update({ enabled: body.enabled })
     .eq("id", id)
+    .eq("profile_id", context.profile.id)
     .select()
     .single();
 
@@ -38,19 +40,20 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   return NextResponse.json({ schedule: data });
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  let context;
   try {
-    assertCronAuthorized(request);
-  } catch (e) {
-    if (e instanceof UnauthorizedError) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    throw e;
+    context = await requireActiveUser();
+  } catch (error) {
+    return accessErrorResponse(error) ?? NextResponse.json({ error: "Authorization failed" }, { status: 500 });
   }
 
   const { id } = await params;
-  const supabase = getSupabaseServiceClient();
-  const { error } = await supabase.from("discovery_schedules").delete().eq("id", id);
+  const { error } = await context.service
+    .from("discovery_schedules")
+    .delete()
+    .eq("id", id)
+    .eq("profile_id", context.profile.id);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

@@ -1,5 +1,6 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import type { ContactRecord, EventRecord } from "@/types/event";
+import { formatAccountDateTime } from "@/lib/timezone";
 
 const PAGE_WIDTH = 612; // US Letter
 const PAGE_HEIGHT = 792;
@@ -75,7 +76,7 @@ export async function buildEventScoutPdf(
 
   // Header
   drawLine("Event Scout Export", { size: 20, bold: true, color: accentColor, gapAfter: 4 });
-  const generatedAt = new Date().toISOString().slice(0, 19).replace("T", " ") + " UTC";
+  const generatedAt = formatAccountDateTime(new Date());
   drawLine(`Generated ${generatedAt}`, { size: 9, color: mutedColor });
   if (meta.clientName) drawLine(`Prepared for: ${meta.clientName}`, { size: 9, color: mutedColor });
   if (meta.filterSummary) drawLine(`Filters: ${meta.filterSummary}`, { size: 9, color: mutedColor });
