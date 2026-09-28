@@ -246,7 +246,10 @@ export function AdminConsole({
       setNotice(json.error ?? "Failed to start impersonation");
       return;
     }
-    router.push("/");
+    // Full load so the shared layout and every client-cached page re-render as
+    // the member; a client push keeps the owner's sidebar and omits the banner.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+    window.location.assign("/");
   }
 
   async function toggleFlag(flag: FeatureFlag) {

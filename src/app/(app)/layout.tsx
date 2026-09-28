@@ -45,6 +45,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         credits={credits}
         displayName={displayName}
         avatarUrl={avatar?.signedUrl ?? null}
+        impersonating={Boolean(context.impersonation)}
       />
       <main className="theme-panel flex-1 overflow-y-auto bg-icon-background text-icon-text">
         {children}

@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabaseBrowser";
 import { ProfileAvatar } from "@/components/ProfileAvatar";
 import { isNavActive } from "@/lib/navigation";
+import { ReturnToAdminButton } from "@/components/ImpersonationBanner";
 
 interface NavItem {
   href: string;
@@ -136,19 +137,42 @@ function CreditsPanel({
   );
 }
 
+function ImpersonationPanel({ email }: { email: string }) {
+  return (
+    <div className="mb-3 rounded-xl border border-amber-400/40 bg-amber-400/10 px-3.5 py-3">
+      <p className="text-[10px] font-semibold uppercase tracking-[.14em] text-amber-300">Viewing as customer</p>
+      <p className="mt-1.5 truncate text-sm font-semibold text-white">{email}</p>
+      <ReturnToAdminButton className="mt-2.5 w-full bg-amber-400 text-amber-950 hover:bg-amber-300" />
+    </div>
+  );
+}
+
 function UserMenu({
   displayName,
   email,
   avatarUrl,
   onNavigate,
   onLogout,
+  impersonating,
 }: {
   displayName: string;
   email: string;
   avatarUrl: string | null;
   onNavigate?: () => void;
   onLogout: () => void;
+  impersonating: boolean;
 }) {
+  if (impersonating) {
+    return (
+      <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-2.5">
+        <ProfileAvatar src={avatarUrl} name={displayName} />
+        <span className="min-w-0 flex-1 text-left">
+          <span className="block truncate text-sm font-semibold">{displayName}</span>
+          <span className="block truncate text-xs text-icon-text-light">{email}</span>
+        </span>
+      </div>
+    );
+  }
   return (
     <details className="group relative">
       <summary className="flex cursor-pointer list-none items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-2.5 hover:bg-white/[0.08]">
@@ -175,12 +199,14 @@ export function Sidebar({
   credits,
   displayName,
   avatarUrl,
+  impersonating = false,
 }: {
   email: string;
   role: string;
   credits: number;
   displayName: string;
   avatarUrl: string | null;
+  impersonating?: boolean;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -254,8 +280,9 @@ export function Sidebar({
             </div>
             <NewSearchButton onNavigate={() => setMobileOpen(false)} />
             {navigation(() => setMobileOpen(false))}
+            {impersonating && <ImpersonationPanel email={email} />}
             <CreditsPanel credits={credits} isOwner={isAdmin} onNavigate={() => setMobileOpen(false)} />
-            <UserMenu displayName={displayName} email={email} avatarUrl={avatarUrl} onNavigate={() => setMobileOpen(false)} onLogout={handleLogout} />
+            <UserMenu displayName={displayName} email={email} avatarUrl={avatarUrl} onNavigate={() => setMobileOpen(false)} onLogout={handleLogout} impersonating={impersonating} />
           </aside>
         </div>
       )}
@@ -266,8 +293,9 @@ export function Sidebar({
         </div>
         <NewSearchButton />
         {navigation()}
+        {impersonating && <ImpersonationPanel email={email} />}
         <CreditsPanel credits={credits} isOwner={isAdmin} />
-        <UserMenu displayName={displayName} email={email} avatarUrl={avatarUrl} onLogout={handleLogout} />
+        <UserMenu displayName={displayName} email={email} avatarUrl={avatarUrl} onLogout={handleLogout} impersonating={impersonating} />
       </aside>
     </>
   );
