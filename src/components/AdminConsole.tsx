@@ -153,6 +153,7 @@ export function AdminConsole({
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [flagBusyKey, setFlagBusyKey] = useState<string | null>(null);
+  const [creditTarget, setCreditTarget] = useState<Member | null>(null);
 
   async function invite(event: React.FormEvent) {
     event.preventDefault();
@@ -196,42 +197,22 @@ export function AdminConsole({
     if (response.ok) router.refresh();
   }
 
-  async function changeRole(member: Member) {
-    if (member.id === actorId) {
-      setNotice("You cannot change your own owner role.");
-      return;
-    }
-    const next = member.role === "super_admin" ? "user" : "super_admin";
-    const reason = window.prompt(`Reason to change ${member.email} to ${next === "super_admin" ? "owner" : "member"}:`);
-    if (!reason) return;
-    if (next === "super_admin" && !window.confirm(`${member.email} will receive full owner access. Continue?`)) return;
-    const response = await fetch("/api/admin/members", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ profileId: member.id, role: next, reason }),
-    });
-    const json = await response.json();
-    setNotice(response.ok ? `${member.email} is now ${next === "super_admin" ? "an owner" : "a member"}.` : json.error);
-    if (response.ok) router.refresh();
-  }
-
-  async function adjustCredits(member: Member) {
-    const raw = window.prompt(`Whole credits to add or remove for ${member.email}:`);
-    if (!raw) return;
-    const amount = Number(raw);
-    const reason = window.prompt("Required audit reason:");
-    if (!Number.isInteger(amount) || amount === 0 || !reason) {
-      setNotice("Enter a non-zero whole number and a reason.");
-      return;
-    }
+  async function submitCreditAdjustment(member: Member, amount: number, reason: string): Promise<string | null> {
     const response = await fetch("/api/admin/credits", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ profileId: member.id, amount, reason }),
     });
     const json = await response.json();
-    setNotice(response.ok ? `Adjusted ${member.email} by ${amount} manual credits.` : json.error);
-    if (response.ok) router.refresh();
+    if (!response.ok) return json.error ?? "Could not adjust credits";
+    setNotice(
+      amount > 0
+        ? `Added ${amount.toLocaleString()} credits to ${member.email}.`
+        : `Removed ${Math.abs(amount).toLocaleString()} credits from ${member.email}.`
+    );
+    setCreditTarget(null);
+    router.refresh();
+    return null;
   }
 
   async function loginAs(member: Member) {
@@ -287,6 +268,13 @@ export function AdminConsole({
 
   return (
     <div className="space-y-8">
+      {creditTarget && (
+        <CreditAdjustDialog
+          member={creditTarget}
+          onClose={() => setCreditTarget(null)}
+          onSubmit={(amount, reason) => submitCreditAdjustment(creditTarget, amount, reason)}
+        />
+      )}
       {notice && <p role="status" className="animate-enter rounded-xl border border-icon-primary/25 bg-icon-primary-light px-4 py-3 text-sm font-medium">{notice}</p>}
 
       {memberDetail && (
@@ -376,7 +364,6 @@ export function AdminConsole({
             <thead className="bg-icon-primary-light/60 text-left text-[11px] uppercase tracking-[.12em] text-icon-text-light">
               <tr>
                 <th className="px-5 py-3">Member</th>
-                <th className="px-4 py-3">Role</th>
                 <th className="px-4 py-3">Plan</th>
                 <th className="px-4 py-3">Credits</th>
                 <th className="px-4 py-3">Cycle spend</th>
@@ -392,7 +379,6 @@ export function AdminConsole({
                 return (
                   <tr key={member.id} className="transition-colors hover:bg-icon-primary-light/35">
                     <td className="px-5 py-4"><p className="font-semibold">{name || member.email}</p>{name && <p className="mt-0.5 text-xs text-icon-text-light">{member.email}</p>}</td>
-                    <td className="px-4 py-4"><span className="rounded-full bg-stone-100 px-2.5 py-1 text-xs font-semibold capitalize">{member.role === "super_admin" ? "Owner" : "Member"}</span></td>
                     <td className="px-4 py-4 text-icon-text-light">
                       {member.subscription ? (
                         <span className="capitalize">
@@ -427,9 +413,8 @@ export function AdminConsole({
                     <td className="px-5 py-4">
                       <div className="flex justify-end gap-1.5">
                         <Link href={memberHref(member.id, memberPage.page, memberPage.query, memberPage.status)} className="rounded-lg border border-icon-border px-2.5 py-1.5 text-xs font-semibold hover:border-icon-primary">View</Link>
-                        <button onClick={() => adjustCredits(member)} className="cursor-pointer rounded-lg border border-icon-border px-2.5 py-1.5 text-xs font-semibold hover:border-icon-primary">Credits</button>
+                        <button onClick={() => setCreditTarget(member)} className="cursor-pointer rounded-lg border border-icon-border px-2.5 py-1.5 text-xs font-semibold hover:border-icon-primary">Credits</button>
                         <button onClick={() => changeAccess(member)} disabled={member.id === actorId} className="cursor-pointer rounded-lg border border-icon-border px-2.5 py-1.5 text-xs font-semibold hover:border-icon-primary disabled:cursor-not-allowed disabled:opacity-35">{member.access_status === "active" ? "Suspend" : "Activate"}</button>
-                        <button onClick={() => changeRole(member)} disabled={member.id === actorId} className="cursor-pointer rounded-lg border border-icon-border px-2.5 py-1.5 text-xs font-semibold hover:border-icon-primary disabled:cursor-not-allowed disabled:opacity-35">Role</button>
                         {member.role !== "super_admin" && (
                           <button onClick={() => loginAs(member)} className="cursor-pointer rounded-lg border border-icon-border px-2.5 py-1.5 text-xs font-semibold hover:border-icon-primary">Login as</button>
                         )}
@@ -438,7 +423,7 @@ export function AdminConsole({
                   </tr>
                 );
               })}
-              {members.length === 0 && <tr><td colSpan={9} className="px-5 py-12 text-center text-icon-text-light">No members match these filters.</td></tr>}
+              {members.length === 0 && <tr><td colSpan={8} className="px-5 py-12 text-center text-icon-text-light">No members match these filters.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -533,6 +518,127 @@ export function AdminConsole({
           </div>
         </div>
       </section>
+    </div>
+  );
+}
+
+const CREDIT_PRESETS = [
+  { credits: 20, hint: "1 search or 1 contact" },
+  { credits: 100, hint: "5 actions" },
+  { credits: 500, hint: "25 actions" },
+  { credits: 1000, hint: "Starter month" },
+];
+
+function CreditAdjustDialog({
+  member,
+  onClose,
+  onSubmit,
+}: {
+  member: Member;
+  onClose: () => void;
+  onSubmit: (amount: number, reason: string) => Promise<string | null>;
+}) {
+  const [mode, setMode] = useState<"add" | "remove">("add");
+  const [credits, setCredits] = useState("");
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const value = Number(credits);
+  const validAmount = Number.isInteger(value) && value > 0;
+  const tooMuch = mode === "remove" && validAmount && value > member.balance;
+  const newBalance = validAmount ? member.balance + (mode === "add" ? value : -value) : member.balance;
+  const canSave = validAmount && !tooMuch && reason.trim().length >= 3 && !saving;
+  const name = member.display_name || member.full_name || member.email;
+
+  async function save(event: React.FormEvent) {
+    event.preventDefault();
+    if (!canSave) return;
+    setSaving(true);
+    setError(null);
+    const failure = await onSubmit(mode === "add" ? value : -value, reason.trim());
+    if (failure) {
+      setError(failure);
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal="true" aria-labelledby="credit-dialog-title">
+      <form onSubmit={save} className="w-full max-w-md rounded-2xl bg-icon-surface p-6 text-icon-text shadow-2xl">
+        <p className="premium-eyebrow">Credits</p>
+        <h2 id="credit-dialog-title" className="mt-2 text-xl font-semibold">{name}</h2>
+        <p className="mt-1 text-sm text-icon-text-light">
+          Currently has <strong className="text-icon-text">{member.balance.toLocaleString()}</strong> credits. A search costs 20, each contact costs 20.
+        </p>
+
+        <div className="mt-5 grid grid-cols-2 gap-1 rounded-full border border-icon-border p-1">
+          {(["add", "remove"] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => setMode(option)}
+              className={`cursor-pointer rounded-full py-2 text-sm font-semibold ${mode === option ? "bg-icon-primary text-white" : "text-icon-text-light hover:text-icon-text"}`}
+            >
+              {option === "add" ? "Give credits" : "Take away credits"}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-4 grid grid-cols-4 gap-2">
+          {CREDIT_PRESETS.map((preset) => (
+            <button
+              key={preset.credits}
+              type="button"
+              onClick={() => setCredits(String(preset.credits))}
+              className={`cursor-pointer rounded-xl border px-2 py-2 text-center ${Number(credits) === preset.credits ? "border-icon-primary bg-icon-primary-light" : "border-icon-border hover:border-icon-primary"}`}
+            >
+              <span className="block text-sm font-semibold">{preset.credits.toLocaleString()}</span>
+              <span className="block text-[10px] leading-tight text-icon-text-light">{preset.hint}</span>
+            </button>
+          ))}
+        </div>
+
+        <label className="mt-4 block text-sm font-semibold">
+          Or type an amount
+          <input
+            type="number"
+            min={1}
+            step={1}
+            inputMode="numeric"
+            value={credits}
+            onChange={(event) => setCredits(event.target.value)}
+            placeholder="e.g. 100"
+            className="mt-1.5 w-full rounded-xl border border-icon-border bg-transparent px-3 py-2.5 text-sm font-normal outline-none focus:border-icon-primary"
+          />
+        </label>
+
+        <label className="mt-4 block text-sm font-semibold">
+          Why? <span className="font-normal text-icon-text-light">(saved in the audit history)</span>
+          <input
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            placeholder={mode === "add" ? "e.g. Refund for a bad search" : "e.g. Added by mistake"}
+            className="mt-1.5 w-full rounded-xl border border-icon-border bg-transparent px-3 py-2.5 text-sm font-normal outline-none focus:border-icon-primary"
+          />
+        </label>
+
+        <p className={`mt-4 rounded-xl px-3 py-2.5 text-sm ${tooMuch ? "bg-red-50 text-red-700" : "bg-icon-background text-icon-text-light"}`}>
+          {tooMuch
+            ? `They only have ${member.balance.toLocaleString()} credits — you can take away at most that.`
+            : validAmount
+              ? <>New balance: <strong className="text-icon-text">{newBalance.toLocaleString()}</strong> credits</>
+              : "Pick or type how many credits."}
+        </p>
+        {error && <p className="mt-3 text-sm font-medium text-red-700">{error}</p>}
+
+        <div className="mt-6 flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="cursor-pointer rounded-full border border-icon-border px-4 py-2 text-sm font-semibold hover:border-icon-primary">Cancel</button>
+          <button type="submit" disabled={!canSave} className="cursor-pointer rounded-full bg-icon-primary px-5 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40">
+            {saving ? "Saving…" : mode === "add" ? "Give credits" : "Take away credits"}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
