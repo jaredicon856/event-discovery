@@ -280,6 +280,58 @@ export function trialCompleteEmail(input: {
   return { subject, html, text };
 }
 
+export function trialEndingSoonEmail(input: {
+  searchUrl: string;
+  endsOnLabel: string;
+}): { subject: string; html: string; text: string } {
+  const subject = "Your free Event Scout trial ends in 2 days";
+  const html = shell({
+    preheader: `Your free search and contact lookups are available until ${input.endsOnLabel}.`,
+    title: "Your free search is waiting",
+    bodyHtml: `
+      <p style="margin:0 0 12px;">Your free trial ends on <strong style="color:${COLORS.ink};">${escapeHtml(input.endsOnLabel)}</strong>.</p>
+      <p style="margin:0;">You still have one discovery search and two organizer contact lookups to use. It takes a couple of minutes.</p>
+    `,
+    ctaLabel: "Run my free search",
+    ctaUrl: input.searchUrl,
+  });
+  const text = [
+    subject,
+    "",
+    `Your free trial ends on ${input.endsOnLabel}.`,
+    "You still have one discovery search and two organizer contact lookups to use.",
+    `Run my free search: ${input.searchUrl}`,
+    "",
+    `Questions? ${emailReplyTo()}`,
+  ].join("\n");
+  return { subject, html, text };
+}
+
+export function trialExpiredEmail(input: {
+  billingUrl: string;
+}): { subject: string; html: string; text: string } {
+  const subject = "Your free Event Scout trial has ended";
+  const html = shell({
+    preheader: "Choose a plan to start discovering speaking and event opportunities.",
+    title: "Your free trial has ended",
+    bodyHtml: `
+      <p style="margin:0 0 12px;">Your 7-day free trial is over. Your workspace and anything you saved stay available.</p>
+      <p style="margin:0;">Choose a plan when you’re ready for discovery searches, contact research, and scheduled runs.</p>
+    `,
+    ctaLabel: "View plans",
+    ctaUrl: input.billingUrl,
+  });
+  const text = [
+    subject,
+    "",
+    "Your 7-day free trial is over. Your workspace and anything you saved stay available.",
+    `View plans: ${input.billingUrl}`,
+    "",
+    `Questions? ${emailReplyTo()}`,
+  ].join("\n");
+  return { subject, html, text };
+}
+
 export function paymentConfirmedEmail(input: {
   planName: string;
   amountLabel: string;
