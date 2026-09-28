@@ -9,11 +9,94 @@ if (typeof window !== "undefined") {
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   creditsToppedUpEmail,
+  ownerNewPlanEmail,
+  ownerNewTrialEmail,
   paymentConfirmedEmail,
   trialCompleteEmail,
 } from "@/lib/email/templates";
-import { appOrigin, sendEmail } from "@/lib/email/resend";
+import { appOrigin, ownerAlertEmail, sendEmail } from "@/lib/email/resend";
 import { formatInvoiceAmount } from "@/lib/stripeInvoices";
+import { formatAccountDateTime } from "@/lib/timezone";
+
+async function ownerAlertProfile(supabase: SupabaseClient, profileId: string) {
+  const { data } = await supabase
+    .from("profiles")
+    .select("email, full_name, display_name, company, is_test_account, role")
+    .eq("id", profileId)
+    .maybeSingle();
+  if (!data?.email || data.role === "super_admin") return null;
+  return data as {
+    email: string;
+    full_name: string | null;
+    display_name: string | null;
+    company: string | null;
+    is_test_account: boolean;
+  };
+}
+
+/** Owner alert when a new member receives the free trial. Never throws. */
+export async function sendOwnerNewTrialAlert(
+  supabase: SupabaseClient,
+  profileId: string
+): Promise<void> {
+  try {
+    const profile = await ownerAlertProfile(supabase, profileId);
+    if (!profile) return;
+    const template = ownerNewTrialEmail({
+      email: profile.email,
+      name: profile.full_name || profile.display_name,
+      company: profile.company,
+      isTestAccount: profile.is_test_account,
+      signedUpLabel: `${formatAccountDateTime(new Date())} ET`,
+      adminUrl: `${appOrigin()}/admin?member=${profileId}`,
+    });
+    await sendEmail({
+      to: ownerAlertEmail(),
+      replyTo: profile.email,
+      subject: template.subject,
+      html: template.html,
+      text: template.text,
+      tags: [{ name: "category", value: "owner_new_trial" }],
+    });
+  } catch (error) {
+    console.error("Owner new-trial alert failed", error);
+  }
+}
+
+/** Owner alert when a member starts a paid plan. Never throws. */
+export async function sendOwnerNewPlanAlert(input: {
+  supabase: SupabaseClient;
+  profileId: string;
+  planName: string;
+  interval: "month" | "year";
+  amountCents: number;
+  currency: string;
+}): Promise<void> {
+  try {
+    const profile = await ownerAlertProfile(input.supabase, input.profileId);
+    if (!profile) return;
+    const template = ownerNewPlanEmail({
+      email: profile.email,
+      name: profile.full_name || profile.display_name,
+      company: profile.company,
+      isTestAccount: profile.is_test_account,
+      planName: input.planName,
+      billingLabel: input.interval === "year" ? "Annual" : "Monthly",
+      amountLabel: formatInvoiceAmount(input.amountCents, input.currency),
+      adminUrl: `${appOrigin()}/admin?member=${input.profileId}`,
+    });
+    await sendEmail({
+      to: ownerAlertEmail(),
+      replyTo: profile.email,
+      subject: template.subject,
+      html: template.html,
+      text: template.text,
+      tags: [{ name: "category", value: "owner_new_plan" }],
+    });
+  } catch (error) {
+    console.error("Owner new-plan alert failed", error);
+  }
+}
 
 export async function profileEmail(
   supabase: SupabaseClient,

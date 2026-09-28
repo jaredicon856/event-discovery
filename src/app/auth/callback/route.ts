@@ -3,6 +3,7 @@ import { getSupabaseServerClient } from "@/lib/supabaseServer";
 import { getSupabaseServiceClient } from "@/lib/supabase";
 import { hashInvitationToken } from "@/lib/invitations";
 import { isProfileComplete } from "@/lib/profileCompletion";
+import { sendOwnerNewTrialAlert } from "@/lib/email/notify";
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
@@ -69,6 +70,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(
       new URL(reason === "suspended" ? "/login?access=suspended" : "/login?error=verification_required", origin)
     );
+  }
+  if ((activation as { trial_granted?: boolean }).trial_granted) {
+    await sendOwnerNewTrialAlert(service, user.id);
   }
 
   const { data: profile } = await service

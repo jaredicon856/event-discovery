@@ -13,6 +13,7 @@ import { decidePaidInvoice, getCancellationState } from "@/lib/stripeLifecycle";
 import { grantCredits } from "@/lib/credits";
 import {
   sendCreditsToppedUpEmail,
+  sendOwnerNewPlanAlert,
   sendPaymentConfirmedEmail,
 } from "@/lib/email/notify";
 
@@ -246,6 +247,16 @@ export async function POST(request: NextRequest) {
           } catch (mailError) {
             console.error("Payment confirmation email failed", mailError);
           }
+        }
+        if (billingReason === "subscription_create" && invoice.amount_paid > 0) {
+          await sendOwnerNewPlanAlert({
+            supabase,
+            profileId,
+            planName: stripePlan.name,
+            interval: getBillingIntervalForStripePriceId(subscription.items.data[0]?.price.id ?? ""),
+            amountCents: invoice.amount_paid,
+            currency: invoice.currency || "usd",
+          });
         }
         break;
       }

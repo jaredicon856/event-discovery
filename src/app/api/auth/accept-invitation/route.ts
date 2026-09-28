@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabaseServer";
 import { getSupabaseServiceClient } from "@/lib/supabase";
 import { hashInvitationToken } from "@/lib/invitations";
+import { sendOwnerNewTrialAlert } from "@/lib/email/notify";
 
 export async function POST(request: NextRequest) {
   const auth = await getSupabaseServerClient();
@@ -34,8 +35,7 @@ export async function POST(request: NextRequest) {
   ) {
     return NextResponse.json({ error: "Account activation failed" }, { status: 403 });
   }
-  return NextResponse.json({
-    accepted: true,
-    trialGranted: (activation as { trial_granted?: boolean }).trial_granted ?? false,
-  });
+  const trialGranted = (activation as { trial_granted?: boolean }).trial_granted ?? false;
+  if (trialGranted) await sendOwnerNewTrialAlert(service, user.id);
+  return NextResponse.json({ accepted: true, trialGranted });
 }

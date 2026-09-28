@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabaseServer";
 import { getSupabaseServiceClient } from "@/lib/supabase";
+import { sendOwnerNewTrialAlert } from "@/lib/email/notify";
 
 export async function POST() {
   const auth = await getSupabaseServerClient();
@@ -28,6 +29,7 @@ export async function POST() {
       { status: 403 }
     );
   }
+  if (activation.trial_granted) await sendOwnerNewTrialAlert(service, user.id);
   return NextResponse.json({
     active: true,
     trialGranted: activation.trial_granted ?? false,

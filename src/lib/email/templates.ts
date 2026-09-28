@@ -208,6 +208,108 @@ export function accessRequestAlertEmail(input: {
   return { subject, html, text };
 }
 
+function ownerAlertRows(rows: Array<[string, string | null | undefined]>): string {
+  return rows
+    .filter(([, value]) => value)
+    .map(
+      ([label, value]) =>
+        `<tr><td style="padding:6px 12px 6px 0;color:${COLORS.muted};white-space:nowrap;">${escapeHtml(label)}</td><td style="padding:6px 0;color:${COLORS.ink};font-weight:600;">${escapeHtml(value!)}</td></tr>`
+    )
+    .join("");
+}
+
+export function ownerNewTrialEmail(input: {
+  email: string;
+  name?: string | null;
+  company?: string | null;
+  isTestAccount: boolean;
+  signedUpLabel: string;
+  adminUrl: string;
+}): { subject: string; html: string; text: string } {
+  const who = input.name?.trim() || input.email;
+  const subject = `${input.isTestAccount ? "[Test] " : ""}New trial signup: ${who}`;
+  const html = shell({
+    preheader: `${who} just started a free Event Scout trial.`,
+    title: "New trial member",
+    bodyHtml: `
+      <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;text-align:left;font-size:14px;">
+        ${ownerAlertRows([
+          ["Name", input.name?.trim()],
+          ["Email", input.email],
+          ["Company", input.company?.trim()],
+          ["Signed up", input.signedUpLabel],
+          ["Trial", "1 search + 2 contacts · 7 days"],
+          ["Account", input.isTestAccount ? "Test account" : null],
+        ])}
+      </table>
+    `,
+    ctaLabel: "Open in Admin",
+    ctaUrl: input.adminUrl,
+    footerNote: "Owner alert from Event Scout.",
+  });
+  const text = [
+    subject,
+    "",
+    input.name?.trim() ? `Name: ${input.name.trim()}` : "",
+    `Email: ${input.email}`,
+    input.company?.trim() ? `Company: ${input.company.trim()}` : "",
+    `Signed up: ${input.signedUpLabel}`,
+    "Trial: 1 search + 2 contacts, 7 days",
+    "",
+    `Open in Admin: ${input.adminUrl}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+  return { subject, html, text };
+}
+
+export function ownerNewPlanEmail(input: {
+  email: string;
+  name?: string | null;
+  company?: string | null;
+  isTestAccount: boolean;
+  planName: string;
+  billingLabel: string;
+  amountLabel: string;
+  adminUrl: string;
+}): { subject: string; html: string; text: string } {
+  const who = input.name?.trim() || input.email;
+  const subject = `${input.isTestAccount ? "[Test] " : ""}New ${input.planName} customer: ${who} (${input.amountLabel})`;
+  const html = shell({
+    preheader: `${who} just subscribed to ${input.planName}.`,
+    title: "New paying customer",
+    bodyHtml: `
+      <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;text-align:left;font-size:14px;">
+        ${ownerAlertRows([
+          ["Name", input.name?.trim()],
+          ["Email", input.email],
+          ["Company", input.company?.trim()],
+          ["Plan", `${input.planName} · ${input.billingLabel}`],
+          ["Paid", input.amountLabel],
+          ["Account", input.isTestAccount ? "Test account" : null],
+        ])}
+      </table>
+    `,
+    ctaLabel: "Open in Admin",
+    ctaUrl: input.adminUrl,
+    footerNote: "Owner alert from Event Scout.",
+  });
+  const text = [
+    subject,
+    "",
+    input.name?.trim() ? `Name: ${input.name.trim()}` : "",
+    `Email: ${input.email}`,
+    input.company?.trim() ? `Company: ${input.company.trim()}` : "",
+    `Plan: ${input.planName} (${input.billingLabel})`,
+    `Paid: ${input.amountLabel}`,
+    "",
+    `Open in Admin: ${input.adminUrl}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+  return { subject, html, text };
+}
+
 export function confirmEmailEmail(input: {
   confirmUrl: string;
 }): { subject: string; html: string; text: string } {
