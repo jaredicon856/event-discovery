@@ -16,14 +16,34 @@ discovery/enrichment.
 A persistent sidebar (`src/components/Sidebar.tsx`, dark/gold, in `layout.tsx`) replaces the old
 single-page layout. Pages:
 
-- **Overview** (`/`) — filters + the events table (what used to be the whole homepage).
-- **Discover** (`/discover`) — run a new search, manage scheduled (cron) searches.
-- **Saved Lists** (`/lists`) — saved filter presets / search batches, apply or delete-with-cascade.
-- **Billing** (`/billing`) — a **static design preview only**, not wired to real billing yet (no
-  Stripe, no credit ledger, no accounts). Placeholder numbers, clearly labeled as draft.
-- **Settings** (`/settings`) — empty placeholder, pending user accounts.
-- **Super Admin** (`/admin`, disabled in the sidebar) — placeholder page with a comment that it
-  must never hold anything real before actual auth/multi-tenancy exists.
+- **Overview** (`/`) — customer credits/activity, or a separate owner operations overview.
+- **Opportunities** (`/opportunities`) — guided search, in-progress stages, verified results, and previous searches. `/discover` redirects here.
+- **Saved Lists** (`/lists`) — private filter presets/search batches; deleting one removes only the shortcut.
+- **Usage & Credits** (`/usage`) — customer-visible grants, charges, and refunds.
+- **Billing** (`/billing`) — live credit balance, Stripe Checkout/portal, plans, and ledger history.
+- **Profile & Settings** (`/settings/profile`) — editable personal profile, private photo, and timezone.
+- **Account & Security** (`/settings/security`) — actual connected methods, passwords, and sessions.
+- **Administration** (`/admin`) — role-gated members, invitations, balances, audits, and internal costs.
+
+## Launch pricing and credit model
+
+| Plan | Monthly price | Credits | AI actions | Typical 7-event runs |
+| --- | ---: | ---: | ---: | ---: |
+| Starter | $79 | 1,000 | 50 | about 6 |
+| Growth | $199 | 2,500 | 125 | about 15 |
+| Scale | $499 | 6,500 | 325 | about 40 |
+
+One discovery costs **20 credits**. Each event contact enrichment costs another **20 credits**.
+A typical search that finds and auto-enriches seven events therefore costs 160 credits.
+
+The allocations are modeled against a $0.40 target direct-AI cost per action, based on Sonnet 5
+at $2/input MTok and $10/output MTok plus $0.01 per web search. This is a target, not a hard
+provider guarantee: live evaluation observed $0.20–$0.48 discovery cost, and the application
+records and flags overruns. Monthly
+credits roll over while subscribed, capped at 2x the plan allowance. Failed AI actions are
+automatically refunded.
+
+The detailed model is in the Event Scout pricing canvas in this Cursor workspace.
 
 The white "content panel" look isn't per-component styling — every component already used
 semantic tokens (`bg-icon-background`, `text-icon-text`, etc. — see `globals.css`) instead of
@@ -38,8 +58,8 @@ fixing separately for contrast on white.
 - Supabase project **event-scout** (org: Project I.C.O.N) — `yxejxwfhukfjrgkwhtil.supabase.co`
 - Schema migration (`supabase/migrations/0001_init.sql`) already applied
 - 62 events seeded from the example CSV
-- `.env.local` is filled in with real Supabase keys. Only `ANTHROPIC_API_KEY` needs to stay current
-  (get one at [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys)).
+- `.env.local` needs Supabase, Anthropic, and Stripe values from `.env.example`. Create/update the
+  Anthropic key at [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys).
 
 ## Developing in the cloud (GitHub Codespaces) — no local checkout needed
 
@@ -52,7 +72,8 @@ instead of cloning it to your own machine:
 2. Add the real secrets once as **Codespaces secrets**, not in any committed file: repo
    **Settings → Secrets and variables → Codespaces**, add each of `NEXT_PUBLIC_SUPABASE_URL`,
    `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY`,
-   `CRON_SECRET`, `BC_INGEST_SECRET`, `IRIS_INGEST_URL` (values in `.env.example` show the shape;
+   `CRON_SECRET`, `BC_INGEST_SECRET`, `IRIS_INGEST_URL`, `STRIPE_SECRET_KEY`,
+   `STRIPE_WEBHOOK_SECRET`, and the three `STRIPE_PRICE_*` values (see `.env.example`;
    get the real values the same place you got them for `.env.local`/Vercel). They're injected
    automatically into every future Codespace for this repo.
 3. In the Codespace's terminal (a full VS Code in your browser, or reopen it in your local VS
@@ -68,13 +89,12 @@ Codespaces usage is billed by GitHub past the free monthly quota — stop the Co
 ## Local development (alternative — runs on your own machine)
 
 ```bash
+nvm use
 npm install
-npm run dev
+npm run dev -- --webpack
 ```
 
-Open http://localhost:3000. You'll see the seeded events, a discovery panel to run new
-agent searches, filters (sector/tier/status/date range/keyword), a "Find contact" button
-per row, and a CSV export link.
+Node 22 is the supported local/build runtime (`.nvmrc`). Open http://localhost:3000.
 
 ## Re-running the schema or reseeding
 
@@ -103,9 +123,10 @@ forced structured extraction) to find organizer names/emails/phones for a specif
 `/api/discover` now also auto-runs this enrichment for every event it saves, so contacts show up
 without a separate manual step.
 
-Both routes accept an optional `x-cron-secret` header (checked against `CRON_SECRET` in env)
-so they can be safely triggered from an external caller (n8n, Zapier, manual curl) without a
-browser session. Without `CRON_SECRET` set, they're open (fine for local dev, not for production).
+Both routes require an active, non-suspended authenticated user. Active super-admins use an
+explicit `owner_unbilled` entitlement: operations remain owned, idempotent, and fully metered
+for AI cost, while customer credits and trial counters stay untouched. Discovery and contact
+ownership are checked server-side; they are not callable anonymously or with a cron secret.
 
 ## Scheduled (cron) discovery
 
@@ -125,6 +146,23 @@ This route authenticates differently than the others — Vercel automatically se
 from the `x-cron-secret` header used elsewhere), so `CRON_SECRET` **must** be set in Vercel for
 the cron job to run at all.
 
+## Durable discovery worker
+
+Discovery requests atomically create the run, debit or record the entitlement operation, and
+enqueue `discovery_jobs`. The immediate `after()` path and recovery worker both claim the same
+90-second database lease; a 30-second heartbeat keeps a live job from being reclaimed. Queued
+jobs and expired leases are retried at most three times. Terminal technical failures restore
+customer discovery credits when applicable. Completed stage artifacts are reused after recovery,
+although a process crash after a provider response but before artifact persistence can still
+repeat provider cost.
+
+- **Vercel:** `/api/cron/process-discovery` runs every minute. This requires Vercel Pro or
+  Enterprise because Hobby cron is limited to once daily. Set `CRON_SECRET`; Fluid Compute's
+  300-second default must remain available to the route.
+- **Local:** Vercel cron does not run under `next dev`. Run `npm run worker:discovery` in a
+  second terminal. It polls every five seconds by default; override with
+  `DISCOVERY_WORKER_POLL_MS`.
+
 ## Saved lists ("smart lists")
 
 Apply any combination of filters (sector/tier/status/date range/keyword) on the dashboard, then
@@ -135,20 +173,15 @@ A saved list can also capture the results of one specific discovery run (see bel
 sector/tier/etc filter — that's what "Save as list" does when you save from the default "latest
 search results" view, where there's no filter to save otherwise.
 
-**Deleting a saved list also permanently deletes every event currently matching its filter
-criteria** (and their contacts, via cascade) — not just the saved shortcut. This is real, hard
-data deletion with no undo, so the UI shows a confirmation naming the exact event count before
-it runs. A list can never be created or deleted with zero filter criteria (that would match/wipe
-every event in the database) — both the API and UI block that case.
+Deleting a saved list removes only that customer-owned shortcut. Shared internal event/cache
+records and other customers’ activity are never deleted or exposed by this action.
 
 ## Default dashboard view: latest search results, not everything
 
-Every event is tagged with a `discovery_run_id` (a UUID generated once per `runDiscovery()` call,
-shared by every event that run touched). With no filters applied and no saved list open, the
-dashboard shows only the events tagged with the *most recent* run — not the full accumulated
-table — so a fresh search's results are immediately visible instead of buried among everything
-ever found. Running a new discovery search (from the panel at the top) navigates back to this
-clean default view automatically.
+Every result is linked through a customer-owned `discovery_run_id`. A completed search navigates
+to `/opportunities?runId=<id>`, where the server verifies that the run belongs to the signed-in
+profile before loading any shared cache records. The page summarizes events, contacts, partial
+failures, and customer credits or unbilled owner usage.
 
 Applying any filter, opening a saved list, or clicking "Browse all events instead" bypasses the
 "latest run" restriction and queries across every event as before. The CSV seed data and any
@@ -183,10 +216,75 @@ optionally `IRIS_INGEST_URL` (defaults to the production sales-app URL) in env.
 2. Import it in Vercel.
 3. Add the same env vars from `.env.local` (`NEXT_PUBLIC_SUPABASE_URL`,
    `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY`,
-   `CRON_SECRET`, and `BC_INGEST_SECRET`) in Vercel's Project Settings → Environment Variables.
+   `CRON_SECRET`, `BC_INGEST_SECRET`, and all Stripe values in `.env.example`) in Vercel's
+   Project Settings → Environment Variables. Configure Stripe to send subscription webhooks to
+   `/api/stripe/webhook`.
+   Keep `STRIPE_CHECKOUT_ENABLED=false` and `STRIPE_ALLOW_LIVE_CHECKOUT=false` until the
+   test-mode acceptance matrix has passed.
 4. Deploy. The discovery/enrich routes have `maxDuration` set (300s/120s) since web-search
    agent calls take a while — make sure your Vercel plan supports that function duration
    (Pro plan or higher for >60s; Hobby caps at 60s, so bump `maxDuration` down or upgrade).
+
+## Authentication, Google, and owner setup
+
+Public users may register with a verified email/password identity or Google and receive one
+idempotent trial: one discovery plus contact research for up to two returned events. Invitations
+remain optional. The initial owner uses `admin@projecticon.io`; the email alone never grants
+privileges.
+
+1. Set `NEXT_PUBLIC_APP_URL` to the exact app origin and add
+   `${NEXT_PUBLIC_APP_URL}/auth/callback` to Supabase Authentication → URL Configuration.
+2. Run `npm run owner:bootstrap -- invite`, then accept the email while that app origin is
+   reachable.
+3. Run `npm run owner:bootstrap -- promote`. The database refuses promotion unless the auth
+   identity is verified, its one-time invitation was accepted, and no active super-admin exists.
+4. In Google Cloud, create an OAuth 2.0 **Web application** client. Add authorized JavaScript
+   origins `http://localhost:3000` and the exact production origin. Add the authorized redirect
+   URI `https://yxejxwfhukfjrgkwhtil.supabase.co/auth/v1/callback`.
+5. In Supabase Authentication → Providers → Google, enable Google and paste that client ID and
+   secret. In Authentication → URL Configuration set the production origin as Site URL and add
+   these redirect URLs:
+   - `http://localhost:3000/auth/callback`
+   - `https://<production-domain>/auth/callback`
+6. Test new Google signup, returning Google sign-in, and same-verified-email linking. Each case
+   must resolve to one profile and one trial claim.
+7. Enable Supabase leaked-password protection before launch.
+
+Google is enabled in Supabase and the app reaches Google's account chooser with the configured
+client and Supabase callback. Complete one manual account-consent pass for each case in step 6;
+the agent cannot enter or approve personal Google credentials. Supabase automatic linking must
+only link identities with the same verified email.
+
+## Stripe test setup
+
+1. In Stripe **test mode**, create three monthly recurring prices: $79, $199, and $499.
+2. Set `STRIPE_SECRET_KEY=sk_test_...`, `STRIPE_PRICE_STARTER`, `STRIPE_PRICE_GROWTH`,
+   `STRIPE_PRICE_SCALE`, and `STRIPE_WEBHOOK_SECRET=whsec_...`.
+3. Send test webhooks to `<app-origin>/api/stripe/webhook` for `checkout.session.completed`,
+   `invoice.paid`, `invoice.payment_failed`, `customer.subscription.updated`, and
+   `customer.subscription.deleted`. For local testing, use Stripe CLI forwarding.
+4. For local test Checkout, set `STRIPE_CHECKOUT_ENABLED=true` only with `sk_test_...` and test
+   Price objects. Keep `STRIPE_ALLOW_LIVE_CHECKOUT=false`. The route rejects live keys, live
+   Prices, and mismatched currency, amount, or interval. Keep production Checkout disabled until
+   the test-mode lifecycle matrix passes; never enable the live flag before launch approval.
+5. Verify paid signup, paid upgrade, next-renewal downgrade, renewal, failed renewal,
+   cancellation, portal return, and duplicate webhook delivery. Ledger grants must remain
+   invoice/event-idempotent.
+   The complete sandbox matrix passed on 23 September 2026; evidence is in
+   `docs/stripe-test-lifecycle-2026-09-23.md` and can be repeated with `npm run test:stripe`.
+
+## Credit and cancellation rules
+
+- Subscription and rollover credits remain usable during an active paid period, capped together
+  at 2× the monthly allowance. Manual credits are a separate, persistent bucket and do not count
+  toward that cap.
+- A scheduled cancellation sets the subscription/rollover expiry to the paid-through date.
+  Manual credits do not expire. Debit checks enforce the paid-through date even if a webhook is
+  late, and refunds retain the original bucket/expiry.
+- Failed invoices never grant credits. Paid renewals and upgrades are invoice-idempotent.
+  Downgrade allowance changes take effect on the next successfully paid cycle.
+- Discovery costs 20 credits; each requested contact lookup costs another 20. Customers choose
+  the automatic contact lookup cap before a run.
 
 ## What's not built yet (next steps)
 
@@ -201,5 +299,7 @@ optionally `IRIS_INGEST_URL` (defaults to the production sales-app URL) in env.
 - **Contact enrichment API fallback** — `/api/enrich` currently relies entirely on agent web
   search. For higher hit rates you could add Hunter.io/Apollo as a fallback when the agent
   finds an organization but no named contact.
-- **Auth** — none. This is an open internal tool per the MVP scope. Add Supabase Auth if it
-  needs to be multi-user or gated.
+- **Annual plans** — available once `STRIPE_PRICE_*_ANNUAL` Price IDs are set (10× monthly,
+  ~16.7% off). **Credits still grant monthly** on annual billing so a customer cannot burn a
+  year of capacity in week one; `/api/cron/grant-annual-credits` issues months 2–12. One-time
+  credit top-ups stay behind `STRIPE_PRICE_TOPUP_*` and remain hidden until configured.
