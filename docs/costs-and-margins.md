@@ -34,9 +34,7 @@ Plain-language money guide. Real costs come from our AI usage log
 | Starter annual | $790/yr | 12,000/yr | 6.58¢ | **$1.32** |
 | Growth annual | $1,990/yr | 30,000/yr | 6.63¢ | **$1.33** |
 | Scale annual | $4,990/yr | 78,000/yr | 6.40¢ | **$1.28** ← cheapest |
-| Small pack | $89 | 1,000 | 8.9¢ | **$1.78** |
-| Medium pack | $209 | 2,500 | 8.36¢ | **$1.67** |
-| Large pack | $399 | 5,000 | 7.98¢ | **$1.60** |
+| Top-up ($20–$2,000) | customer's choice | same as plans at $79 / $199 / $499 | 7.7¢–8¢ | **$1.54–$1.59** |
 
 ---
 

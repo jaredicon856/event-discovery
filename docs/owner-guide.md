@@ -50,8 +50,10 @@ Manual credits don't count toward this cap.
 | Scale | $499 | $4,990 | 6,500 |
 
 - Annual customers still get their credits **one month at a time**, not all at once.
-- Credit packs (one-time purchase, never expire): Small 1,000 for $89 ·
-  Medium 2,500 for $209 · Large 5,000 for $399.
+- Credit top-ups (one-time purchase, never expire): the customer picks any amount from
+  $20 to $2,000. Paying a plan's price buys exactly that plan's credits ($79 = 1,000,
+  $199 = 2,500, $499 = 6,500); amounts in between scale smoothly
+  (quick picks: $20 = 253, $50 = 632, $100 = 1,262).
 - A failed payment never gives credits.
 - Stripe is in **test mode** — no real money moves until we switch to live.
 
