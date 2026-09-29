@@ -127,11 +127,13 @@ async function main() {
     object: "checkout.session",
     mode: "payment",
     payment_status: "paid",
+    amount_total: 50_00,
+    currency: "usd",
     customer: customer.id,
     metadata: {
       kind: "credit_topup",
       profile_id: profileId,
-      topup_pack_id: "small",
+      amount_usd: "50",
     },
   });
   const duplicateTopup = await sendSimulatedWebhook(
@@ -141,11 +143,13 @@ async function main() {
       object: "checkout.session",
       mode: "payment",
       payment_status: "paid",
+      amount_total: 50_00,
+      currency: "usd",
       customer: customer.id,
       metadata: {
         kind: "credit_topup",
         profile_id: profileId,
-        topup_pack_id: "small",
+        amount_usd: "50",
       },
     },
     topupEvent.id

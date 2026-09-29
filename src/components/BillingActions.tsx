@@ -7,6 +7,13 @@ import {
   type BillingInterval,
   type PlanDefinition,
 } from "@/lib/plans";
+import {
+  TOPUP_MAX_USD,
+  TOPUP_MIN_USD,
+  TOPUP_PRESETS_USD,
+  isValidTopupAmount,
+  quoteTopup,
+} from "@/lib/topup";
 
 /**
  * Opened synchronously inside the click handler — a tab opened after the
@@ -146,29 +153,37 @@ export function ChoosePlanButton({
   );
 }
 
-export function BuyCreditsButton({
-  packId,
-  label,
-  featured = false,
-}: {
-  packId: string;
-  label: string;
-  featured?: boolean;
-}) {
+function formatUsd(amount: number): string {
+  return amount.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+}
+
+export function TopupPicker() {
+  const [selected, setSelected] = useState<number | "other">(TOPUP_PRESETS_USD[0]);
+  const [otherInput, setOtherInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleClick() {
+  const rawAmount = selected === "other" ? Number(otherInput) : selected;
+  const hasInput = selected !== "other" || otherInput.trim() !== "";
+  const valid = isValidTopupAmount(rawAmount);
+  const quote = valid ? quoteTopup(rawAmount) : null;
+  const inputError =
+    hasInput && !valid
+      ? `Enter a whole-dollar amount between ${formatUsd(TOPUP_MIN_USD)} and ${formatUsd(TOPUP_MAX_USD)}.`
+      : null;
+
+  async function handleBuy() {
+    if (!quote) return;
     setLoading(true);
     setError(null);
     const checkoutTab = openBlankTab();
     try {
-      const url = await requestCheckoutUrl("/api/stripe/checkout-topup", { packId });
+      const url = await requestCheckoutUrl("/api/stripe/checkout-topup", { amountUsd: quote.amountUsd });
       if (checkoutTab) {
         checkoutTab.location.href = url;
         setLoading(false);
       } else {
-        window.location.href = url;
+        window.location.assign(url);
       }
     } catch (checkoutError) {
       checkoutTab?.close();
@@ -177,20 +192,96 @@ export function BuyCreditsButton({
     }
   }
 
+  const optionClass = (active: boolean) =>
+    `cursor-pointer rounded-2xl border p-4 text-left transition ${
+      active
+        ? "border-icon-primary bg-icon-primary-light ring-1 ring-icon-primary"
+        : "border-icon-border bg-icon-background hover:border-icon-primary"
+    }`;
+
   return (
-    <div>
-      <button
-        onClick={handleClick}
-        disabled={loading}
-        className={`premium-button w-full disabled:cursor-not-allowed disabled:opacity-50 ${
-          featured
-            ? "bg-[#d4ad62] text-[#071d1e]"
-            : "border border-icon-border bg-icon-surface text-icon-text hover:border-icon-primary"
-        }`}
-      >
-        {loading ? "Opening secure checkout…" : label}
-      </button>
-      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+    <div className="mt-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {TOPUP_PRESETS_USD.map((amount) => {
+          const presetQuote = quoteTopup(amount);
+          return (
+            <button
+              key={amount}
+              type="button"
+              onClick={() => setSelected(amount)}
+              className={optionClass(selected === amount)}
+              aria-pressed={selected === amount}
+            >
+              <span className="block text-2xl font-semibold tracking-[-.04em]">{formatUsd(amount)}</span>
+              <span className="mt-1 block text-xs text-icon-text-light">
+                {presetQuote.credits.toLocaleString("en-US")} credits
+              </span>
+            </button>
+          );
+        })}
+        <button
+          type="button"
+          onClick={() => setSelected("other")}
+          className={optionClass(selected === "other")}
+          aria-pressed={selected === "other"}
+        >
+          <span className="block text-2xl font-semibold tracking-[-.04em]">Other</span>
+          <span className="mt-1 block text-xs text-icon-text-light">Choose any amount</span>
+        </button>
+      </div>
+
+      {selected === "other" && (
+        <div className="mt-4">
+          <label htmlFor="topup-amount" className="text-sm font-semibold">
+            Amount in US dollars
+          </label>
+          <div className="relative mt-2">
+            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-icon-text-light">$</span>
+            <input
+              id="topup-amount"
+              type="number"
+              inputMode="numeric"
+              min={TOPUP_MIN_USD}
+              max={TOPUP_MAX_USD}
+              step={1}
+              autoFocus
+              value={otherInput}
+              onChange={(event) => setOtherInput(event.target.value)}
+              placeholder={`${TOPUP_MIN_USD}–${TOPUP_MAX_USD.toLocaleString("en-US")}`}
+              style={{ paddingLeft: "2rem" }}
+              className="premium-input text-lg [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            />
+          </div>
+          {inputError && <p className="mt-2 text-xs text-red-600">{inputError}</p>}
+        </div>
+      )}
+
+      <div className="mt-4 rounded-2xl border border-icon-border bg-icon-background p-5 text-sm">
+        <div className="flex justify-between gap-4">
+          <span>Credits</span>
+          <span className="font-semibold">{quote ? quote.credits.toLocaleString("en-US") : "—"}</span>
+        </div>
+        <div className="mt-2 flex justify-between gap-4 text-icon-text-light">
+          <span>Covers about</span>
+          <span>{quote ? `${quote.actions.toLocaleString("en-US")} searches or contact lookups` : "—"}</span>
+        </div>
+        <div className="mt-4 flex justify-between gap-4 border-t border-icon-border pt-4 text-base font-semibold">
+          <span>Total due</span>
+          <span>{quote ? formatUsd(quote.amountUsd) : "—"}</span>
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <button
+          type="button"
+          onClick={handleBuy}
+          disabled={!quote || loading}
+          className="premium-button w-full bg-[#d4ad62] text-[#071d1e] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {loading ? "Opening secure checkout…" : quote ? `Buy ${quote.credits.toLocaleString("en-US")} credits for ${formatUsd(quote.amountUsd)}` : "Choose an amount"}
+        </button>
+        {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+      </div>
     </div>
   );
 }

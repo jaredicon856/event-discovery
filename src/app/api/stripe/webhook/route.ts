@@ -6,9 +6,9 @@ import {
   getPlanByStripePriceId,
   getBillingIntervalForStripePriceId,
   getStripeClient,
-  getTopupPack,
   type PlanDefinition,
 } from "@/lib/stripe";
+import { creditsForAmountCents } from "@/lib/topup";
 import { decidePaidInvoice, getCancellationState } from "@/lib/stripeLifecycle";
 import { grantCredits } from "@/lib/credits";
 import {
@@ -128,28 +128,35 @@ export async function POST(request: NextRequest) {
 
         if (session.mode === "payment" && session.metadata?.kind === "credit_topup") {
           const profileId = session.metadata?.profile_id;
-          const pack = getTopupPack(session.metadata?.topup_pack_id ?? "");
-          if (!profileId || !pack) {
+          if (!profileId) {
             throw new Error("Top-up checkout session is missing required metadata");
           }
           if (session.payment_status !== "paid") break;
+          if ((session.currency ?? "usd") !== "usd") {
+            throw new Error(`Top-up checkout session charged unsupported currency ${session.currency}`);
+          }
+          const amountCents = session.amount_total ?? 0;
+          const credits = creditsForAmountCents(amountCents);
+          if (credits <= 0) {
+            throw new Error("Top-up checkout session has no paid amount");
+          }
 
           await grantCredits(supabase, {
             profileId,
-            amount: pack.credits,
+            amount: credits,
             reason: "topup",
             bucket: "manual",
-            note: `${pack.name} credit top-up`,
+            note: `Credit top-up (${(amountCents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" })})`,
             stripeEventId: event.id,
           });
           try {
             await sendCreditsToppedUpEmail({
               supabase,
               profileId,
-              packName: pack.name,
-              credits: pack.credits,
-              amountCents: session.amount_total ?? pack.priceUsd * 100,
-              currency: session.currency ?? "usd",
+              packName: "credit top-up",
+              credits,
+              amountCents,
+              currency: "usd",
             });
           } catch (mailError) {
             console.error("Top-up confirmation email failed", mailError);

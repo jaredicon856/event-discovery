@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { accessErrorResponse, requireActiveUser } from "@/lib/access";
-import { getStripeClient, getStripeTopupPriceId, getTopupPack } from "@/lib/stripe";
+import { getStripeClient } from "@/lib/stripe";
 import { StripeConfigError, assertLocalTopupCheckoutEnabled } from "@/lib/stripeCheckout";
+import { TOPUP_MAX_USD, TOPUP_MIN_USD, isValidTopupAmount, quoteTopup } from "@/lib/topup";
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,21 +18,23 @@ export async function POST(request: NextRequest) {
     return accessErrorResponse(error) ?? NextResponse.json({ error: "Authorization failed" }, { status: 500 });
   }
 
-  let body: { packId?: string };
+  let body: { amountUsd?: unknown };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const pack = getTopupPack(body.packId ?? "");
-  if (!pack) {
-    return NextResponse.json({ error: "Unknown credit pack" }, { status: 400 });
+  if (!isValidTopupAmount(body.amountUsd)) {
+    return NextResponse.json(
+      { error: `Enter a whole-dollar amount between $${TOPUP_MIN_USD} and $${TOPUP_MAX_USD.toLocaleString("en-US")}` },
+      { status: 400 }
+    );
   }
+  const quote = quoteTopup(body.amountUsd);
 
   try {
     const stripe = getStripeClient();
-    const priceId = getStripeTopupPriceId(pack);
     const supabase = context.service;
 
     const { data: profile } = await supabase
@@ -54,7 +57,19 @@ export async function POST(request: NextRequest) {
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       customer: customerId,
-      line_items: [{ price: priceId, quantity: 1 }],
+      line_items: [
+        {
+          quantity: 1,
+          price_data: {
+            currency: "usd",
+            unit_amount: quote.amountUsd * 100,
+            product_data: {
+              name: `${quote.credits.toLocaleString("en-US")} credits`,
+              description: `One-time credit top-up · about ${quote.actions.toLocaleString("en-US")} searches or contact lookups`,
+            },
+          },
+        },
+      ],
       success_url: `${origin}/billing?checkout=success`,
       cancel_url: `${origin}/billing?checkout=cancelled`,
       locale: "en",
@@ -63,14 +78,14 @@ export async function POST(request: NextRequest) {
       client_reference_id: context.user.id,
       custom_text: {
         submit: {
-          message: `${pack.credits.toLocaleString()} credits are added to your workspace immediately after payment. This is a one-time purchase and does not change your monthly plan.`,
+          message: `${quote.credits.toLocaleString("en-US")} credits are added to your workspace immediately after payment. This is a one-time purchase and does not change your monthly plan.`,
         },
       },
       metadata: {
         kind: "credit_topup",
         profile_id: context.user.id,
-        topup_pack_id: pack.id,
-        credits: String(pack.credits),
+        amount_usd: String(quote.amountUsd),
+        credits: String(quote.credits),
       },
     });
 

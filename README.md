@@ -302,4 +302,5 @@ only link identities with the same verified email.
 - **Annual plans** — available once `STRIPE_PRICE_*_ANNUAL` Price IDs are set (10× monthly,
   ~16.7% off). **Credits still grant monthly** on annual billing so a customer cannot burn a
   year of capacity in week one; `/api/cron/grant-annual-credits` issues months 2–12. One-time
-  credit top-ups stay behind `STRIPE_PRICE_TOPUP_*` and remain hidden until configured.
+  credit top-ups let customers choose any whole-dollar amount from $20 to $2,000 (priced in
+  `src/lib/topup.ts`) and appear once the customer has a live plan.

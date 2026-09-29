@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { CREDIT_COSTS } from "../src/lib/credits";
 import { PLANS, annualSavingsUsd } from "../src/lib/plans";
-import { TOPUP_PACKS } from "../src/lib/stripe";
+import { creditsForAmountCents } from "../src/lib/topup";
 
 test("launch plans preserve approved prices and allowances", () => {
   assert.deepEqual(
@@ -57,15 +57,10 @@ test("documented stress margins include Stripe fees and infrastructure allocatio
   }
 });
 
-test("top-up packs never undercut the Starter plan's per-credit price", () => {
-  const starter = PLANS.find((plan) => plan.id === "starter");
-  assert.ok(starter);
-  const starterRate = starter.priceMonthly / starter.creditsPerCycle;
-  for (const pack of TOPUP_PACKS) {
-    const rate = pack.priceUsd / pack.credits;
-    assert.ok(
-      rate >= starterRate,
-      `${pack.name} is ${rate.toFixed(4)}/credit, cheaper than Starter ${starterRate.toFixed(4)}`
-    );
+test("top-ups never beat the cheapest monthly plan's per-credit price", () => {
+  const cheapestRate = Math.min(...PLANS.map((plan) => plan.priceMonthly / plan.creditsPerCycle));
+  for (let usd = 20; usd <= 2000; usd += 1) {
+    const rate = usd / creditsForAmountCents(usd * 100);
+    assert.ok(rate >= cheapestRate - 1e-9, `$${usd} top-up is ${rate.toFixed(5)}/credit`);
   }
 });

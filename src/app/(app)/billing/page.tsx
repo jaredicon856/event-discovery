@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { CREDIT_COSTS, getCreditBalances } from "@/lib/credits";
-import { PLANS, TOPUP_PACKS, areAnnualPlansConfigured, areTopupPacksConfigured } from "@/lib/stripe";
-import { BuyCreditsButton, ManageSubscriptionButton } from "@/components/BillingActions";
+import { PLANS, areAnnualPlansConfigured } from "@/lib/stripe";
+import { ManageSubscriptionButton, TopupPicker } from "@/components/BillingActions";
 import { BillingPlansGrid } from "@/components/BillingPlansGrid";
 import { OwnerBillingPanel } from "@/components/OwnerBillingPanel";
 import { requireActiveUser } from "@/lib/access";
@@ -51,9 +51,9 @@ export default async function BillingPage({
   const allotment = subscription?.credits_per_cycle ?? 0;
   const usedThisCycle = Math.max(0, allotment - balances.subscription);
   const usedPct = allotment > 0 ? Math.min(100, Math.round((usedThisCycle / allotment) * 100)) : 0;
-  // "Add credits" links here. Without a live plan there are no top-up packs to
+  // "Add credits" links here. Without a live plan there is no top-up picker to
   // scroll to, so the same anchor lands on the plan chooser instead.
-  const topupsAvailable = planIsLive && areTopupPacksConfigured();
+  const topupsAvailable = planIsLive;
   return (
     <div className="premium-page min-h-screen px-5 py-8 sm:px-8 lg:px-12 lg:py-12">
       <div className="mx-auto flex max-w-7xl flex-col gap-8">
@@ -184,40 +184,12 @@ export default async function BillingPage({
                 <p className="premium-eyebrow">Need capacity now</p>
                 <h2 className="mt-2 text-2xl font-semibold tracking-[-.04em]">Buy more credits</h2>
                 <p className="mt-2 max-w-xl text-sm leading-6 text-icon-text-light">
-                  One-time top-ups add credits to your account instantly—no change to your monthly
-                  plan or renewal date.
+                  Choose how much to add. One-time top-ups add credits to your account instantly—no
+                  change to your monthly plan or renewal date.
                 </p>
               </div>
             </div>
-            <div className="mt-6 grid gap-4 sm:grid-cols-3">
-              {TOPUP_PACKS.map((pack) => (
-                <div
-                  key={pack.id}
-                  className={`rounded-2xl border p-5 ${
-                    pack.id === "medium" ? "border-icon-primary bg-icon-primary-light" : "border-icon-border bg-icon-background"
-                  }`}
-                >
-                  {pack.id === "medium" && (
-                    <span className="mb-2 inline-block rounded-full bg-icon-primary px-3 py-1 text-[10px] font-bold uppercase tracking-[.12em] text-white">
-                      Best value
-                    </span>
-                  )}
-                  <p className="text-sm font-semibold text-icon-primary">{pack.name}</p>
-                  <p className="mt-2 flex items-baseline gap-2">
-                    <span className="text-3xl font-semibold tracking-[-.05em]">${pack.priceUsd}</span>
-                    <span className="text-xs text-icon-text-light">one-time</span>
-                  </p>
-                  <p className="mt-1 text-sm text-icon-text-light">{pack.credits.toLocaleString()} credits</p>
-                  <div className="mt-4">
-                    <BuyCreditsButton
-                      packId={pack.id}
-                      label={`Buy ${pack.credits.toLocaleString()} credits`}
-                      featured={pack.id === "medium"}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
+            <TopupPicker />
             <p className="mt-5 text-xs text-icon-text-light">
               Top-up credits never expire while your account stays active and are spent after
               your monthly and rollover balances.

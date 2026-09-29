@@ -1,9 +1,7 @@
 import {
   PLANS,
-  TOPUP_PACKS,
   getStripeClient,
   getStripePriceId,
-  getStripeTopupPriceId,
   type BillingInterval,
 } from "@/lib/stripe";
 
@@ -17,12 +15,6 @@ const EXPECTED_ANNUAL_AMOUNTS: Record<string, number> = {
   starter: 79000,
   growth: 199000,
   scale: 499000,
-};
-
-const EXPECTED_TOPUP_AMOUNTS: Record<string, number> = {
-  small: 8900,
-  medium: 20900,
-  large: 39900,
 };
 
 export class StripeConfigError extends Error {
@@ -108,34 +100,7 @@ export async function assertLocalTestCheckoutEnabled(interval: BillingInterval =
   await assertTestModePrices({ requireAnnual: interval === "year" });
 }
 
-export async function assertTestModeTopupPrices() {
-  assertStripeSecretIsTestMode();
-  if (process.env.STRIPE_ALLOW_LIVE_CHECKOUT === "true") {
-    throw new StripeConfigError("Live Checkout remains disabled");
-  }
-  const stripe = getStripeClient();
-  for (const pack of TOPUP_PACKS) {
-    const priceId = getStripeTopupPriceId(pack);
-    if (!priceId.startsWith("price_")) {
-      throw new StripeConfigError(`${pack.stripePriceEnvVar} is not a Stripe Price id`);
-    }
-    const price = await stripe.prices.retrieve(priceId);
-    if (price.livemode) {
-      throw new StripeConfigError(`${pack.name} top-up Price ${priceId} is live-mode; test-mode Price required`);
-    }
-    if (price.currency !== "usd") {
-      throw new StripeConfigError(`${pack.name} top-up Price must be usd`);
-    }
-    if (price.unit_amount !== EXPECTED_TOPUP_AMOUNTS[pack.id]) {
-      throw new StripeConfigError(`${pack.name} top-up Price amount must be ${EXPECTED_TOPUP_AMOUNTS[pack.id]}`);
-    }
-    if (price.recurring) {
-      throw new StripeConfigError(`${pack.name} top-up Price must be one-time, not recurring`);
-    }
-  }
-}
-
-/** Same gating as the subscription checkout route, applied to one-time top-up Prices. */
+/** Same gating as the subscription checkout route. Top-ups use inline amounts, so there are no Prices to verify. */
 export async function assertLocalTopupCheckoutEnabled() {
   if (process.env.STRIPE_CHECKOUT_ENABLED !== "true") {
     throw new StripeConfigError("Checkout is disabled until local test configuration is complete");
@@ -146,5 +111,5 @@ export async function assertLocalTopupCheckoutEnabled() {
   if (process.env.STRIPE_SECRET_KEY?.startsWith("sk_live_")) {
     throw new StripeConfigError("Live Checkout is locked");
   }
-  await assertTestModeTopupPrices();
+  assertStripeSecretIsTestMode();
 }
