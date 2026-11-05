@@ -3,7 +3,7 @@ import test from "node:test";
 import { canAffordCall, estimateCallUsd, TARGET_DISCOVERY_USD } from "../src/lib/providerBudget";
 import { validateOpportunity, classifyValidated, normalizeStatus } from "../src/lib/opportunityValidation";
 import { buildResearchQuery, defaultDateWindow, parseCriteria, sectorMatches } from "../src/lib/searchCriteria";
-import { assertStripeSecretIsTestMode, StripeConfigError } from "../src/lib/stripeCheckout";
+import { assertStripeSecretIsTestMode, assertStripeSecretMatchesMode, StripeConfigError } from "../src/lib/stripeCheckout";
 import { canStartDiscovery, getNonTrialCreditBalance } from "../src/lib/credits";
 import { handleDiscoveryPollStatus } from "../src/lib/discoveryStatus";
 import {
@@ -405,6 +405,14 @@ test("guided criteria produce an official-source-focused research query", () => 
 test("Stripe test-mode secret validation rejects live keys without retrieving prices", () => {
   assert.throws(() => assertStripeSecretIsTestMode("sk_live_example"), StripeConfigError);
   assert.doesNotThrow(() => assertStripeSecretIsTestMode("sk_test_example"));
+});
+
+test("live checkout needs a live key, and test checkout a test key", () => {
+  assert.doesNotThrow(() => assertStripeSecretMatchesMode("sk_live_example", true));
+  assert.doesNotThrow(() => assertStripeSecretMatchesMode("rk_live_example", true));
+  assert.throws(() => assertStripeSecretMatchesMode("sk_test_example", true), StripeConfigError);
+  assert.throws(() => assertStripeSecretMatchesMode("sk_live_example", false), StripeConfigError);
+  assert.throws(() => assertStripeSecretMatchesMode(undefined, true), StripeConfigError);
 });
 
 test("discovery eligibility excludes trial contact credits after the free search is used", () => {

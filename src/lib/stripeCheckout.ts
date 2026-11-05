@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   PLANS,
   getStripeClient,
@@ -24,6 +25,20 @@ export class StripeConfigError extends Error {
   }
 }
 
+/** Live Checkout is on only when STRIPE_ALLOW_LIVE_CHECKOUT is "true"; otherwise everything must be test mode. */
+export function isLiveCheckout(): boolean {
+  return process.env.STRIPE_ALLOW_LIVE_CHECKOUT === "true";
+}
+
+/** The key, and every Price, must match the chosen mode, so test and live can never mix. */
+export function assertStripeSecretMatchesMode(secret = process.env.STRIPE_SECRET_KEY, live = isLiveCheckout()): void {
+  if (!live) return assertStripeSecretIsTestMode(secret);
+  if (!secret) throw new StripeConfigError("Missing STRIPE_SECRET_KEY");
+  if (!/^(sk|rk)_live_/.test(secret)) {
+    throw new StripeConfigError("STRIPE_ALLOW_LIVE_CHECKOUT is on, so STRIPE_SECRET_KEY must be a live sk_live_ key");
+  }
+}
+
 export function assertStripeSecretIsTestMode(secret = process.env.STRIPE_SECRET_KEY): void {
   if (!secret) throw new StripeConfigError("Missing STRIPE_SECRET_KEY");
   if (secret.startsWith("sk_live_")) {
@@ -45,9 +60,9 @@ async function assertRecurringPrice(params: {
     throw new StripeConfigError(`${params.planName} price id is not a Stripe Price id`);
   }
   const price = await stripe.prices.retrieve(params.priceId);
-  if (price.livemode) {
+  if (price.livemode !== isLiveCheckout()) {
     throw new StripeConfigError(
-      `${params.planName} Price ${params.priceId} is live-mode; test-mode Price required`
+      `${params.planName} Price ${params.priceId} is ${price.livemode ? "live" : "test"}-mode; ${isLiveCheckout() ? "live" : "test"}-mode Price required`
     );
   }
   if (price.currency !== "usd") {
@@ -62,10 +77,7 @@ async function assertRecurringPrice(params: {
 }
 
 export async function assertTestModePrices(options?: { requireAnnual?: boolean }) {
-  assertStripeSecretIsTestMode();
-  if (process.env.STRIPE_ALLOW_LIVE_CHECKOUT === "true") {
-    throw new StripeConfigError("Live Checkout remains disabled");
-  }
+  assertStripeSecretMatchesMode();
   for (const plan of PLANS) {
     await assertRecurringPrice({
       planName: `${plan.name} monthly`,
@@ -91,12 +103,6 @@ export async function assertLocalTestCheckoutEnabled(interval: BillingInterval =
   if (process.env.STRIPE_CHECKOUT_ENABLED !== "true") {
     throw new StripeConfigError("Checkout is disabled until local test configuration is complete");
   }
-  if (process.env.STRIPE_ALLOW_LIVE_CHECKOUT === "true") {
-    throw new StripeConfigError("Live Checkout remains disabled");
-  }
-  if (process.env.STRIPE_SECRET_KEY?.startsWith("sk_live_")) {
-    throw new StripeConfigError("Live Checkout is locked");
-  }
   await assertTestModePrices({ requireAnnual: interval === "year" });
 }
 
@@ -105,11 +111,31 @@ export async function assertLocalTopupCheckoutEnabled() {
   if (process.env.STRIPE_CHECKOUT_ENABLED !== "true") {
     throw new StripeConfigError("Checkout is disabled until local test configuration is complete");
   }
-  if (process.env.STRIPE_ALLOW_LIVE_CHECKOUT === "true") {
-    throw new StripeConfigError("Live Checkout remains disabled");
+  assertStripeSecretMatchesMode();
+}
+
+/**
+ * The member's Stripe customer in the current mode. A customer id saved while
+ * testing doesn't exist in live mode (and vice versa), so a missing or deleted
+ * one is replaced with a fresh customer.
+ */
+export async function ensureStripeCustomer(params: {
+  stripe: ReturnType<typeof getStripeClient>;
+  supabase: SupabaseClient;
+  profileId: string;
+  email: string | undefined;
+  existingId: string | null | undefined;
+}): Promise<string> {
+  const { stripe, supabase, profileId, email, existingId } = params;
+  if (existingId) {
+    try {
+      const found = await stripe.customers.retrieve(existingId);
+      if (!("deleted" in found && found.deleted)) return existingId;
+    } catch (error) {
+      if ((error as { code?: string }).code !== "resource_missing") throw error;
+    }
   }
-  if (process.env.STRIPE_SECRET_KEY?.startsWith("sk_live_")) {
-    throw new StripeConfigError("Live Checkout is locked");
-  }
-  assertStripeSecretIsTestMode();
+  const customer = await stripe.customers.create({ email, metadata: { profile_id: profileId } });
+  await supabase.from("profiles").update({ stripe_customer_id: customer.id }).eq("id", profileId);
+  return customer.id;
 }

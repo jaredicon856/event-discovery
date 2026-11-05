@@ -183,7 +183,7 @@ export function BillingPlansGrid({
       <p className="mt-6 text-center text-xs leading-5 text-icon-text-light">
         {interval === "year"
           ? "Annual prepay covers 12 months at 10× the monthly price. Credits still arrive monthly."
-          : "Secure test-mode Checkout is active locally. Cancel anytime — no automatic top-ups."}
+          : "Secure checkout by Stripe. Cancel anytime — no automatic top-ups."}
       </p>
     </section>
   );

@@ -6,7 +6,7 @@ import {
   getStripePriceId,
   type BillingInterval,
 } from "@/lib/stripe";
-import { StripeConfigError, assertLocalTestCheckoutEnabled } from "@/lib/stripeCheckout";
+import { StripeConfigError, assertLocalTestCheckoutEnabled, ensureStripeCustomer } from "@/lib/stripeCheckout";
 
 export async function POST(request: NextRequest) {
   let body: { planId?: string; interval?: string };
@@ -48,15 +48,13 @@ export async function POST(request: NextRequest) {
       .eq("id", context.user.id)
       .single();
 
-    let customerId = profile?.stripe_customer_id ?? undefined;
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: profile?.email ?? context.user.email ?? undefined,
-        metadata: { profile_id: context.user.id },
-      });
-      customerId = customer.id;
-      await supabase.from("profiles").update({ stripe_customer_id: customerId }).eq("id", context.user.id);
-    }
+    const customerId = await ensureStripeCustomer({
+      stripe,
+      supabase,
+      profileId: context.user.id,
+      email: profile?.email ?? context.user.email ?? undefined,
+      existingId: profile?.stripe_customer_id,
+    });
 
     const origin = request.headers.get("origin") ?? request.nextUrl.origin;
     const cadence =
