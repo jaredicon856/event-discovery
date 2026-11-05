@@ -3,6 +3,8 @@ import { getSupabaseServerClient } from "@/lib/supabaseServer";
 import { getSupabaseServiceClient } from "@/lib/supabase";
 import { isProfileComplete, splitPersonName } from "@/lib/profileCompletion";
 import { monthlyAllowance, verifyPortalToken } from "@/lib/speakerIsland";
+import { appOrigin, sendEmail } from "@/lib/email/resend";
+import { speakerIslandWelcomeEmail } from "@/lib/email/templates";
 
 // Sign-in from the Speaker Island Portal's Marketplace. The Portal has already
 // verified the member's email; this links (or creates) their Event Scout
@@ -60,6 +62,7 @@ export async function GET(request: NextRequest) {
     profile.full_name = payload.name;
   }
 
+  const { data: wasMember } = await service.from("speaker_island_members").select("profile_id").eq("profile_id", profile.id).maybeSingle();
   const { error: memberError } = await service
     .from("speaker_island_members")
     .upsert({ profile_id: profile.id, member_type: payload.memberType, last_seen_at: new Date().toISOString() }, { onConflict: "profile_id" });
@@ -71,6 +74,20 @@ export async function GET(request: NextRequest) {
     p_lookups: lookups,
   });
   if (grantError) console.error("speaker island grant", grantError.message);
+
+  // One welcome email, the first time a member comes through.
+  if (!wasMember && !grantError) {
+    try {
+      const mail = speakerIslandWelcomeEmail({
+        firstName: splitPersonName(payload.name).firstName,
+        searches,
+        searchUrl: `${appOrigin(origin)}/opportunities?tab=new`,
+      });
+      await sendEmail({ to: payload.email, ...mail, tags: [{ name: "category", value: "speaker_island_welcome" }] });
+    } catch (e) {
+      console.error("speaker island welcome email", e);
+    }
+  }
 
   // A one-time magic link token, redeemed here on the server, sets the session cookies.
   const { data: link, error: linkError } = await service.auth.admin.generateLink({ type: "magiclink", email: payload.email });

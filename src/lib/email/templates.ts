@@ -382,6 +382,38 @@ export function trialCompleteEmail(input: {
   return { subject, html, text };
 }
 
+// The first time a Speaker Island member opens Event Scout from the Portal.
+export function speakerIslandWelcomeEmail(input: {
+  firstName: string;
+  searches: number;
+  searchUrl: string;
+}): { subject: string; html: string; text: string } {
+  const subject = `Your ${input.searches} free Event Scout searches are ready`;
+  const hi = input.firstName ? `Hi ${escapeHtml(input.firstName)},` : "Hi,";
+  const html = shell({
+    preheader: `As a Speaker Island member you get ${input.searches} free searches every month.`,
+    title: "Welcome to Event Scout",
+    bodyHtml: `
+      <p style="margin:0 0 12px;">${hi}</p>
+      <p style="margin:0 0 12px;">As a Speaker Island member you get <strong style="color:${COLORS.ink};">${input.searches} free searches every month</strong> to find speaking events, conferences and calls for speakers that fit your topic.</p>
+      <p style="margin:0;">Your searches refresh on the 1st of each month. Open Event Scout any time from the Marketplace in your Speaker Island Portal.</p>
+    `,
+    ctaLabel: "Run my first search",
+    ctaUrl: input.searchUrl,
+  });
+  const text = [
+    subject,
+    "",
+    input.firstName ? `Hi ${input.firstName},` : "Hi,",
+    `As a Speaker Island member you get ${input.searches} free searches every month to find speaking events, conferences and calls for speakers that fit your topic.`,
+    "Your searches refresh on the 1st of each month. Open Event Scout any time from the Marketplace in your Speaker Island Portal.",
+    `Run my first search: ${input.searchUrl}`,
+    "",
+    `Questions? ${emailReplyTo()}`,
+  ].join("\n");
+  return { subject, html, text };
+}
+
 export function trialEndingSoonEmail(input: {
   searchUrl: string;
   endsOnLabel: string;
