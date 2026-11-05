@@ -4,6 +4,7 @@ export type TrialEntitlementRow = {
   discovery_remaining: number;
   contact_lookups_remaining: number;
   expires_at: string | null;
+  source?: string | null; // "trial" or "speaker_island" (monthly allowance)
 };
 
 export interface EffectiveTrial {
@@ -12,6 +13,7 @@ export interface EffectiveTrial {
   expiresAt: string | null;
   expired: boolean;
   daysLeft: number | null;
+  speakerIsland: boolean;
 }
 
 /** Remaining trial actions, zeroed once the trial window has passed. */
@@ -32,6 +34,7 @@ export function effectiveTrial(
     expiresAt: row.expires_at,
     expired,
     daysLeft,
+    speakerIsland: row.source === "speaker_island",
   };
 }
 

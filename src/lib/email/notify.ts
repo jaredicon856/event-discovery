@@ -131,7 +131,7 @@ export async function maybeSendTrialCompleteEmail(
     const [{ data: trial }, { data: subscription }, email] = await Promise.all([
       supabase
         .from("trial_entitlements")
-        .select("discovery_remaining")
+        .select("discovery_remaining, source")
         .eq("profile_id", profileId)
         .maybeSingle(),
       supabase
@@ -145,6 +145,8 @@ export async function maybeSendTrialCompleteEmail(
     ]);
 
     if (!email || subscription || (trial?.discovery_remaining ?? 1) > 0) return;
+    // Speaker Island members' searches refresh monthly; no "trial complete" email.
+    if (trial?.source === "speaker_island") return;
 
     const billingUrl = `${appOrigin()}/billing#plans`;
     const template = trialCompleteEmail({ billingUrl });

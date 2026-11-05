@@ -35,6 +35,8 @@ function messageForQuery(searchParams: URLSearchParams): string | null {
   if (error === "invitation_required" || error === "verification_required" || access === "pending") return "Verify your email or identity before continuing.";
   if (access === "suspended") return "This account is suspended. Contact the Event Scout owner.";
   if (error === "auth_callback") return "Sign-in could not be completed. Please try again.";
+  if (error === "portal_link") return "That Speaker Island link has expired. Open Event Scout again from the Speaker Island Portal.";
+  if (error === "portal_owner") return "Owner accounts sign in here directly, not through the Speaker Island Portal.";
   return null;
 }
 
