@@ -29,7 +29,8 @@ export function monthlyAllowance(): { searches: number; lookups: number } {
   };
   return {
     searches: n(process.env.SPEAKER_ISLAND_MONTHLY_SEARCHES, 10, 100),
-    lookups: n(process.env.SPEAKER_ISLAND_MONTHLY_LOOKUPS, 20, 200),
+    // Searches only (Nov 5): contact lookups are paid, unless this is set.
+    lookups: n(process.env.SPEAKER_ISLAND_MONTHLY_LOOKUPS, 0, 200),
   };
 }
 
