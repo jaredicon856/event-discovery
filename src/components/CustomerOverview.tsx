@@ -45,7 +45,7 @@ export async function CustomerOverview() {
         .gte("created_at", periodStart),
       service
         .from("trial_entitlements")
-        .select("discovery_remaining, contact_lookups_remaining, expires_at")
+        .select("discovery_remaining, contact_lookups_remaining, expires_at, source")
         .eq("profile_id", profile.id)
         .maybeSingle(),
     ]);
@@ -105,7 +105,7 @@ export async function CustomerOverview() {
           <Link href="/billing" className="premium-card reveal-card flex flex-col justify-between p-7" style={{ "--reveal-index": 1 } as React.CSSProperties}>
             <p className="premium-eyebrow">Current plan</p>
             <p className="mt-8 text-3xl font-semibold capitalize tracking-[-.04em]">
-              {hasPaidPlan ? subscription?.plan : trial ? (trial.expired ? "Trial expired" : trialComplete ? "Trial complete" : "Free trial") : "No active plan"}
+              {hasPaidPlan ? subscription?.plan : trial?.speakerIsland ? "Speaker Island" : trial ? (trial.expired ? "Trial expired" : trialComplete ? "Trial complete" : "Free trial") : "No active plan"}
             </p>
             <p className="mt-3 text-sm leading-6 text-icon-text-light">
               {hasPaidPlan && subscription
@@ -114,6 +114,10 @@ export async function CustomerOverview() {
                   ? balances.total >= 20
                     ? "You can continue research with available manual credits."
                     : "Choose a plan to run discovery and contact research."
+                  : trial.speakerIsland
+                  ? trialComplete
+                    ? "You've used this month's free searches. They refresh at the start of next month, or choose a plan to keep going."
+                    : `${trial.discoveryRemaining} free ${trial.discoveryRemaining === 1 ? "search" : "searches"} and ${trial.contactsRemaining} contact lookups left this month, from Speaker Island.`
                   : trialComplete
                   ? "Your results remain available. Choose a plan when you are ready to research more."
                   : `${trial.discoveryRemaining} search and ${trial.contactsRemaining} contact lookups remaining · ${trialDaysLeftLabel(trial.daysLeft)}.`}

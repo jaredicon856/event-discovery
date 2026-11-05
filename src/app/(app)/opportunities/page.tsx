@@ -90,7 +90,7 @@ export default async function OpportunitiesPage({
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
-    service.from("trial_entitlements").select("discovery_remaining, contact_lookups_remaining, expires_at").eq("profile_id", profile.id).maybeSingle(),
+    service.from("trial_entitlements").select("discovery_remaining, contact_lookups_remaining, expires_at, source").eq("profile_id", profile.id).maybeSingle(),
     getCreditBalances(service, profile.id),
   ]);
 
@@ -233,6 +233,7 @@ export default async function OpportunitiesPage({
               maxContactLookups={maxContactLookups}
               trialSearchRemaining={activeTrial?.discoveryRemaining}
               trialDaysLeft={activeTrial?.daysLeft ?? null}
+              speakerIsland={activeTrial?.speakerIsland ?? false}
               nonTrialCredits={nonTrialCredits}
               isOwner={isOwner}
             />

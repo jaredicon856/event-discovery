@@ -20,6 +20,7 @@ export function DiscoverPanel({
   maxContactLookups,
   trialSearchRemaining,
   trialDaysLeft = null,
+  speakerIsland = false,
   nonTrialCredits,
   isOwner,
 }: {
@@ -28,6 +29,7 @@ export function DiscoverPanel({
   maxContactLookups: number;
   trialSearchRemaining?: number;
   trialDaysLeft?: number | null;
+  speakerIsland?: boolean;
   nonTrialCredits: number;
   isOwner: boolean;
 }) {
@@ -283,7 +285,9 @@ export function DiscoverPanel({
       </p>
       {isOwner ? null : trialSearchRemaining !== undefined && (
         <p className="text-xs font-semibold text-icon-primary">
-          {trialDaysLeft === 0
+          {speakerIsland
+            ? `Speaker Island: ${trialSearchRemaining} free ${trialSearchRemaining === 1 ? "search" : "searches"} left this month.`
+            : trialDaysLeft === 0
             ? "Your free trial has expired."
             : `Free trial: ${trialSearchRemaining} opportunity search remaining${trialDaysLeft ? ` · ${trialDaysLeftLabel(trialDaysLeft)}` : ""}.`}
         </p>
