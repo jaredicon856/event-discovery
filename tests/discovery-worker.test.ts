@@ -4,12 +4,15 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   broadenedDateTo,
   broadenedLocation,
+  coverageGaps,
   failExhaustedJobs,
   processDiscoveryRun,
   UnresolvedChargeError,
   type DiscoveryProviders,
 } from "../src/lib/discovery";
 import { CREDIT_COSTS } from "../src/lib/credits";
+import type { SearchCriteria } from "../src/lib/searchCriteria";
+import type { EventInput } from "../src/types/event";
 import { createFakeSupabase, type FakeSupabase, type Row } from "./helpers/fakeSupabase";
 
 const PROFILE_ID = "11111111-1111-1111-1111-111111111111";
@@ -742,4 +745,48 @@ test("widened limits: 24 months out at least, and the customer's places stay pre
   assert.equal(broadenedLocation(""), "any");
   assert.equal(broadenedLocation("Any location"), "any");
   assert.match(broadenedLocation("United States"), /^United States preferred; .*online/);
+});
+
+test("coverage gaps name the requested sectors and types nothing has covered", () => {
+  const conference = { ...openEvent("Health Leaders Summit", "event-h"), sector: "Healthcare" };
+  const wide: SearchCriteria = { ...(criteria as SearchCriteria), sectors: ["healthcare", "real_estate"], types: ["conference", "podcast"] };
+  const asInputs = (...events: object[]) => events as unknown as EventInput[];
+  assert.deepEqual(coverageGaps(wide, asInputs(conference)), { sectors: ["real_estate"], types: ["podcast"] });
+  const podcast = { ...openEvent("Building Leaders Podcast", "event-p"), sector: "Real estate", opportunity_type: "podcast" };
+  assert.deepEqual(coverageGaps(wide, asInputs(conference, podcast)), { sectors: [], types: [] });
+  assert.deepEqual(coverageGaps(criteria as SearchCriteria, []), { sectors: [], types: [] }, "a single sector and type never counts as a gap");
+});
+
+test("an exact match in one sector still sends fallback research after the uncovered sector and type", async () => {
+  const healthConference = openEvent("Health Leaders Summit", "event-health");
+  const asked: { sector: string; types?: string[] }[] = [];
+  let extractionCalls = 0;
+  const tables = baseTables({
+    discovery_run_artifacts: [
+      { id: "artifact-research", run_id: RUN_ID, stage: "research", payload: { findings: "Healthcare conferences only", citations: [] } },
+    ],
+  });
+  tables.discovery_runs[0].criteria = { ...criteria, sectors: ["healthcare", "real_estate"], types: ["conference", "podcast"] };
+  const fake = createFakeSupabase(tables);
+
+  await processDiscoveryRun(
+    asClient(fake),
+    RUN_ID,
+    LEASE_TOKEN,
+    providers({
+      researchCategory: async (params) => {
+        asked.push({ sector: params.sector, types: params.types });
+        return { findings: "Real estate podcasts", citations: [], usage: usageOf(0.06, 2), stopReason: "end_turn", truncated: false };
+      },
+      extractEvents: async () => {
+        extractionCalls += 1;
+        return { events: extractionCalls === 1 ? [healthConference] : [], usage: usageOf(0.02), truncated: false, stopReason: "end_turn" };
+      },
+      enrichAndSaveContacts: async () => [] as never,
+    })
+  );
+
+  assert.equal(asked.length >= 1, true, "fallback research runs despite the exact match");
+  assert.equal(asked[0].sector, "Real estate & construction", "it looks only at the uncovered sector");
+  assert.deepEqual(asked[0].types, ["podcast"], "and only at the uncovered type");
 });
