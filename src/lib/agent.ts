@@ -111,7 +111,7 @@ export async function researchCategory(
 
 Today's date: ${today}
 Selected date window: ${params.dateFrom ?? today} to ${params.dateTo ?? "18 months from today"}
-Sector/category: ${sector}
+Sector(s): ${sector}
 Location preference: ${params.location || "any"}
 Opportunity types requested: ${(params.types ?? []).join(", ") || "conferences, panels, workshops, podcasts, standing programs"}
 Search focus: ${query}
@@ -130,7 +130,9 @@ present, be a podcast guest, or apply to a standing speaker program. Include:
 - Podcasts and standing speaker programs that currently accept pitches even if they have no single event date
 - Association/membership bodies with a standing call-for-speakers program
 
-Report at most 12 opportunities, best fits first. A full entry with a date and a source URL is worth
+Report at most 15 opportunities, best fits first. When more than one sector or opportunity type is
+requested, cover each one: give every requested sector and every requested type at least two entries
+when they exist before adding more of any one (a podcast request needs podcasts, not a 13th conference). A full entry with a date and a source URL is worth
 more than a longer list of names, so finish each entry before starting the next and stop adding
 entries rather than leaving one half done.
 

@@ -65,7 +65,7 @@ function hasCurrentPitchEvidence(event: EventInput): boolean {
   );
 }
 
-function matchesRequestedType(opportunityType: string, requestedType: string): boolean {
+export function matchesRequestedType(opportunityType: string, requestedType: string): boolean {
   const normalized = opportunityType.toLowerCase();
   const aliases: Record<string, string[]> = {
     conference: ["conference", "summit", "annual meeting", "symposium"],

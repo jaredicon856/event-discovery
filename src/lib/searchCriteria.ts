@@ -21,6 +21,13 @@ export const SECTOR_CATALOGUE = [
  * places. A raw events.sector value satisfies a requested sector id if it
  * contains any of that id's alias substrings.
  */
+/** The sectors' display names joined for a prompt, e.g. "Healthcare & life sciences; Real estate & construction". */
+export function sectorLabels(ids: string[]): string {
+  return ids
+    .map((id) => SECTOR_CATALOGUE.find((sector) => sector.id === id)?.label ?? id.replaceAll("_", " "))
+    .join("; ");
+}
+
 export const SECTOR_ALIASES: Record<string, string[]> = {
   healthcare: ["healthcare", "health care", "life science", "medical", "hospital", "pharma"],
   financial_services: ["financial", "finance", "banking", "fintech", "insurance"],

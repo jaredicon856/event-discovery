@@ -34,8 +34,13 @@ import {
   TARGET_DISCOVERY_USD,
   trimFindings,
 } from "@/lib/providerBudget";
-import { classifyValidated, validateOpportunity, type ValidatedOpportunity } from "@/lib/opportunityValidation";
-import { buildResearchQuery, parseCriteria, type SearchCriteria } from "@/lib/searchCriteria";
+import {
+  classifyValidated,
+  matchesRequestedType,
+  validateOpportunity,
+  type ValidatedOpportunity,
+} from "@/lib/opportunityValidation";
+import { buildResearchQuery, parseCriteria, sectorLabels, sectorMatches, type SearchCriteria } from "@/lib/searchCriteria";
 import {
   isContactResearchCharged,
   shouldResumeFallbackExtraction,
@@ -235,6 +240,9 @@ export async function processDiscoveryRun(
   const discoveryOperationKey = `${operationKey}:discovery`;
   const entitlement = await getUsageEntitlement(supabase, row.profile_id);
   const criteria = parseCriteria(row.criteria);
+  // Every sector the customer picked, not only the first: research treats it
+  // as a hard criterion, so a second sector used to go unsearched.
+  const researchSector = sectorLabels(criteria.sectors) || row.sector;
   const today = new Date().toISOString().slice(0, 10);
 
   const summaries = Array.isArray(row.stage_summaries) ? [...row.stage_summaries] : [];
@@ -340,7 +348,7 @@ export async function processDiscoveryRun(
       }
       await setStage("research");
       const research = await providers.researchCategory({
-        sector: row.sector,
+        sector: researchSector,
         query: buildResearchQuery({ ...criteria, customQuery: criteria.customQuery || row.query }),
         today,
         dateFrom: criteria.dateFrom,
@@ -468,7 +476,11 @@ export async function processDiscoveryRun(
     // request already produced an exact match. Live evaluation (24 Sep 2026)
     // found a broad multi-sector/multi-type search stopping after one exact
     // match even though half the request was never actually researched.
-    if ((classified.exact.length === 0 || researchTruncated) && !fallbackArtifact) {
+    // A requested sector or type that nothing covers yet is also a reason for
+    // the fallback pass, and the pass then looks only for those gaps.
+    const gaps = coverageGaps(criteria, [...classified.exact, ...classified.related].map((item) => item.event));
+    const hasGaps = gaps.sectors.length > 0 || gaps.types.length > 0;
+    if ((classified.exact.length === 0 || researchTruncated || hasGaps) && !fallbackArtifact) {
       const fallbackEstimate = estimateCallUsd({
         inputChars: row.query.length + RESEARCH_PROMPT_OVERHEAD_CHARS,
         maxTokens: FALLBACK_MAX_TOKENS,
@@ -481,13 +493,15 @@ export async function processDiscoveryRun(
       });
       if (canAffordCall(spentUsd, fallbackEstimate + extractionReserve)) {
         await setStage("fallback_research");
+        const gapSectors = gaps.sectors.length ? gaps.sectors : criteria.sectors;
+        const gapTypes = gaps.types.length ? gaps.types : criteria.types;
         const fallback = await providers.researchCategory({
-          sector: row.sector,
+          sector: hasGaps && classified.exact.length > 0 ? sectorLabels(gapSectors) || researchSector : researchSector,
           query: buildResearchQuery({ ...criteria, customQuery: criteria.customQuery || row.query }),
           today,
           dateFrom: criteria.dateFrom,
           dateTo: criteria.dateTo,
-          types: criteria.types,
+          types: hasGaps && classified.exact.length > 0 ? gapTypes : criteria.types,
           location: criteria.location,
           strategy: "alternate_sources",
           maxTokens: FALLBACK_MAX_TOKENS,
@@ -556,7 +570,7 @@ export async function processDiscoveryRun(
       if (canAffordCall(spentUsd, broadEstimate + broadExtractionReserve)) {
         await setStage("fallback_research");
         const broadened = await providers.researchCategory({
-          sector: row.sector,
+          sector: researchSector,
           query: buildResearchQuery({ ...criteria, customQuery: criteria.customQuery || row.query }),
           today,
           dateFrom: criteria.dateFrom,
@@ -943,6 +957,28 @@ export function broadenedLocation(location: string | undefined): string {
   const wanted = (location ?? "").trim();
   if (!wanted || /^any( location)?$/i.test(wanted)) return "any";
   return `${wanted} preferred; nearby countries and online/remote also acceptable`;
+}
+
+/**
+ * Requested sectors and opportunity types that nothing found so far covers,
+ * exact or related. Live test (18 Nov 2026): "healthcare and real estate,
+ * conferences/podcasts/workshops" came back all healthcare conferences.
+ */
+export function coverageGaps(
+  criteria: SearchCriteria,
+  found: EventInput[]
+): { sectors: string[]; types: string[] } {
+  const sectors =
+    criteria.sectors.length > 1
+      ? criteria.sectors.filter((id) => !found.some((event) => sectorMatches(event.sector ?? "", id)))
+      : [];
+  const types =
+    criteria.types.length > 1
+      ? criteria.types.filter(
+          (id) => !found.some((event) => matchesRequestedType(`${event.opportunity_type ?? ""} ${event.event_name ?? ""}`, id))
+        )
+      : [];
+  return { sectors, types };
 }
 
 function mergeEvents(primary: EventInput[], extra: EventInput[]): EventInput[] {
