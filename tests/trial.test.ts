@@ -44,3 +44,16 @@ describe("free trial expiry", () => {
     assert.equal(trialDaysLeftLabel(0), "expired");
   });
 });
+
+describe("Speaker Island monthly allowance", () => {
+  const now = new Date("2026-11-18T12:00:00Z");
+  it("lets each remaining action be a search or a contact lookup", () => {
+    const member = effectiveTrial(
+      { discovery_remaining: 9, contact_lookups_remaining: 0, expires_at: "2026-12-01T05:00:00Z", source: "speaker_island" },
+      now
+    );
+    assert.equal(member?.speakerIsland, true);
+    assert.equal(member?.discoveryRemaining, 9);
+    assert.equal(member?.contactsRemaining, 9, "lookups draw on the same 9, not a separate 0");
+  });
+});

@@ -108,8 +108,11 @@ export default async function OpportunitiesPage({
   const activeTrial = effectiveTrial(trial);
   const trialDiscoveryRemaining = activeTrial?.discoveryRemaining ?? 0;
   const trialContactsRemaining = activeTrial?.contactsRemaining ?? 0;
-  const contactCreditBudget =
-    trialDiscoveryRemaining > 0
+  // Automatic lookups a new search may run. A Speaker Island member's pool
+  // pays for both, so one action stays reserved for the search itself.
+  const contactCreditBudget = activeTrial?.speakerIsland
+    ? Math.max(0, trialDiscoveryRemaining - 1) * 20 + nonTrialCredits
+    : trialDiscoveryRemaining > 0
       ? trialContactsRemaining * 20 + nonTrialCredits
       : Math.max(0, nonTrialCredits - 20);
   const maxContactLookups = isOwner
