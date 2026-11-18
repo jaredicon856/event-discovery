@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  broadenedDateTo,
+  broadenedLocation,
   failExhaustedJobs,
   processDiscoveryRun,
   UnresolvedChargeError,
@@ -397,8 +399,10 @@ test("a fresh run refunds when fallback research completes but its extraction ca
   // the extraction that has to follow it. Numbers sized for the $2.00
   // runaway-cost safety ceiling (24 Sep 2026) — this is deliberately a
   // pathological case (a fallback costing far more than modeled), not a
-  // realistic everyday search.
-  tables.discovery_runs[0].estimated_cost_usd = 1.8;
+  // realistic everyday search. $0.30 left covers the fallback estimate plus
+  // the extraction reserve (about $0.25 since the 18 Nov token raise); the
+  // fallback's real $0.25 then leaves too little for its extraction.
+  tables.discovery_runs[0].estimated_cost_usd = 1.7;
 
   const fake = createFakeSupabase(tables);
   let fallbackCalls = 0;
@@ -631,4 +635,111 @@ test("a truncated research pass runs fallback research even when it already foun
   assert.equal(extractionCalls, 2, "both the initial and fallback findings get extracted");
   assert.equal(result.inserted, 2, "results from both passes are kept, not just the first");
   assert.notEqual(result.status, "no_matches", "the exact match already found is not discarded");
+});
+
+const usageOf = (estimatedCostUsd: number, webSearchRequests = 0) => ({
+  inputTokens: 1000,
+  outputTokens: 1000,
+  cacheCreationInputTokens: 0,
+  cacheReadInputTokens: 0,
+  webSearchRequests,
+  estimatedCostUsd,
+});
+
+test("when the strict passes find nothing, a widened pass runs and its finds are shown as related, not exact", async () => {
+  // A Speaker Island member's search (10 Nov 2026) ended with nothing to show.
+  // The last resort before an empty result is one more pass with location,
+  // type and date limits relaxed; what it finds must still be judged against
+  // the customer's own filters.
+  const laterEvent = { ...openEvent("Next Year Health Summit", "event-later"), event_start: day(500) };
+  const strategies: (string | undefined)[] = [];
+  const widenedWindows: (string | undefined)[] = [];
+  let extractionCalls = 0;
+
+  const fake = createFakeSupabase(
+    baseTables({
+      discovery_run_artifacts: [
+        { id: "artifact-research", run_id: RUN_ID, stage: "research", payload: { findings: "Nothing in range", citations: [] } },
+      ],
+    })
+  );
+
+  const result = await processDiscoveryRun(
+    asClient(fake),
+    RUN_ID,
+    LEASE_TOKEN,
+    providers({
+      researchCategory: async (params) => {
+        strategies.push(params.strategy);
+        widenedWindows.push(params.dateTo);
+        return {
+          findings: `${params.strategy} findings`,
+          citations: [],
+          usage: usageOf(0.06, 2),
+          stopReason: "end_turn",
+          truncated: false,
+        };
+      },
+      extractEvents: async () => {
+        extractionCalls += 1;
+        return {
+          events: extractionCalls === 3 ? [laterEvent] : [],
+          usage: usageOf(0.02),
+          truncated: false,
+          stopReason: "end_turn",
+        };
+      },
+      enrichAndSaveContacts: async () => [] as never,
+    })
+  );
+
+  assert.deepEqual(strategies, ["alternate_sources", "broadened"], "fallback first, then the widened pass");
+  assert.equal(widenedWindows[1], broadenedDateTo(criteria.dateTo, day(0)), "the widened pass looks further out");
+  assert.equal(result.inserted, 0, "nothing outside the filters is passed off as an exact match");
+  assert.equal(result.relatedEvents?.length, 1, "the widened find is shown as a close match");
+  assert.ok(fake.tables.discovery_run_artifacts.some((a) => a.stage === "broadened_extraction"));
+});
+
+test("the widened pass is skipped when the strict passes already found close matches", async () => {
+  const outOfRange = { ...openEvent("Out Of Range Summit", "event-out"), event_start: day(500) };
+  const strategies: (string | undefined)[] = [];
+
+  const fake = createFakeSupabase(
+    baseTables({
+      discovery_run_artifacts: [
+        { id: "artifact-research", run_id: RUN_ID, stage: "research", payload: { findings: "One near miss", citations: [] } },
+      ],
+    })
+  );
+
+  const result = await processDiscoveryRun(
+    asClient(fake),
+    RUN_ID,
+    LEASE_TOKEN,
+    providers({
+      researchCategory: async (params) => {
+        strategies.push(params.strategy);
+        return { findings: "more", citations: [], usage: usageOf(0.06, 2), stopReason: "end_turn", truncated: false };
+      },
+      extractEvents: async () => ({
+        events: [outOfRange],
+        usage: usageOf(0.02),
+        truncated: false,
+        stopReason: "end_turn",
+      }),
+      enrichAndSaveContacts: async () => [] as never,
+    })
+  );
+
+  assert.deepEqual(strategies, ["alternate_sources"], "no widened pass once there is something to show");
+  assert.equal(result.relatedEvents?.length, 1);
+});
+
+test("widened limits: 24 months out at least, and the customer's places stay preferred", () => {
+  assert.equal(broadenedDateTo("2027-01-01", "2026-11-18"), "2028-11-18");
+  assert.equal(broadenedDateTo("2029-06-30", "2026-11-18"), "2029-06-30", "a later end date the customer chose is kept");
+  assert.equal(broadenedDateTo(undefined, "2026-11-18"), "2028-11-18");
+  assert.equal(broadenedLocation(""), "any");
+  assert.equal(broadenedLocation("Any location"), "any");
+  assert.match(broadenedLocation("United States"), /^United States preferred; .*online/);
 });

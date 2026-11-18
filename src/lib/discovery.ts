@@ -23,6 +23,8 @@ import {
   estimateCallUsd,
   EXTRACTION_MAX_TOKENS,
   EXTRACTION_RETRY_MAX_TOKENS,
+  BROADENED_MAX_SEARCHES,
+  BROADENED_MAX_TOKENS,
   FALLBACK_MAX_SEARCHES,
   FALLBACK_MAX_TOKENS,
   RESEARCH_MAX_SEARCHES,
@@ -366,7 +368,10 @@ export async function processDiscoveryRun(
       });
     }
 
-    const runExtraction = async (sourceFindings: string, stage: "extraction" | "fallback_extraction") => {
+    const runExtraction = async (
+      sourceFindings: string,
+      stage: "extraction" | "fallback_extraction" | "broadened_extraction"
+    ) => {
       const trimmed = trimFindings(sourceFindings);
       const estimate = estimateCallUsd({ inputChars: trimmed.length, maxTokens: EXTRACTION_MAX_TOKENS, maxSearches: 0 });
       if (!canAffordCall(spentUsd, estimate)) {
@@ -507,6 +512,81 @@ export async function processDiscoveryRun(
         classified = classifyValidated(validated);
       } else if (shouldResumeFallbackExtraction(fallbackArtifact, fallbackExtractedArtifact)) {
         await extractFallback(String(fallbackArtifact.findings));
+      }
+    }
+
+    // Widened pass. The exact and fallback passes keep sector, location, date
+    // and type as hard criteria, so a narrow or unusual request could end
+    // with nothing to show. Before settling for an empty result, research
+    // once more with the location, type and date limits relaxed (sector and
+    // topic kept). Whatever it finds is validated against the ORIGINAL
+    // criteria, so it lands in "related" with its differences listed and is
+    // never passed off as an exact match or sent to paid contact research.
+    const broadenedArtifact = await loadArtifact("broadened_research");
+    const extractBroadened = async (broadenedFindings: string) => {
+      const broadExtracted = await runExtraction(broadenedFindings, "broadened_extraction");
+      if (broadExtracted.skipped) {
+        await failRun(
+          supabase,
+          runId,
+          operationKey,
+          entitlement.isOwnerUnlimited,
+          "budget_exhausted",
+          "Widened research completed but the remaining provider budget could not cover its extraction",
+          leaseToken
+        );
+        throw new Error("budget_exhausted");
+      }
+      extractedEvents = mergeEvents(extractedEvents, broadExtracted.events);
+      extractionTruncated = extractionTruncated || broadExtracted.truncated;
+      validated = extractedEvents.map((event) => validateOpportunity(event, criteria));
+      classified = classifyValidated(validated);
+    };
+    if (classified.exact.length === 0 && classified.related.length === 0 && !broadenedArtifact) {
+      const broadEstimate = estimateCallUsd({
+        inputChars: row.query.length + RESEARCH_PROMPT_OVERHEAD_CHARS,
+        maxTokens: BROADENED_MAX_TOKENS,
+        maxSearches: BROADENED_MAX_SEARCHES,
+      });
+      const broadExtractionReserve = estimateCallUsd({
+        inputChars: FINDINGS_PLACEHOLDER,
+        maxTokens: EXTRACTION_MAX_TOKENS,
+        maxSearches: 0,
+      });
+      if (canAffordCall(spentUsd, broadEstimate + broadExtractionReserve)) {
+        await setStage("fallback_research");
+        const broadened = await providers.researchCategory({
+          sector: row.sector,
+          query: buildResearchQuery({ ...criteria, customQuery: criteria.customQuery || row.query }),
+          today,
+          dateFrom: criteria.dateFrom,
+          dateTo: broadenedDateTo(criteria.dateTo, today),
+          types: [],
+          location: broadenedLocation(criteria.location),
+          strategy: "broadened",
+          maxTokens: BROADENED_MAX_TOKENS,
+          maxSearches: BROADENED_MAX_SEARCHES,
+        });
+        await recordStageUsage("fallback_research", broadened.usage);
+        await saveArtifact("broadened_research", { findings: broadened.findings, citations: broadened.citations });
+        citations = [...new Set([...citations, ...broadened.citations])];
+        await completeStage("fallback_research", {
+          broadened: true,
+          webSearches: broadened.usage.webSearchRequests,
+          estimatedCostUsd: broadened.usage.estimatedCostUsd,
+        });
+        await extractBroadened(broadened.findings);
+      } else {
+        await completeStage("fallback_research", { broadened: true, skipped: true, reason: "insufficient_remaining_budget" });
+      }
+    } else if (broadenedArtifact?.findings) {
+      const broadExtractedArtifact = await loadArtifact("broadened_extraction");
+      if (broadExtractedArtifact?.events) {
+        extractedEvents = mergeEvents(extractedEvents, broadExtractedArtifact.events as EventInput[]);
+        validated = extractedEvents.map((event) => validateOpportunity(event, criteria));
+        classified = classifyValidated(validated);
+      } else if (shouldResumeFallbackExtraction(broadenedArtifact, broadExtractedArtifact)) {
+        await extractBroadened(String(broadenedArtifact.findings));
       }
     }
 
@@ -849,6 +929,21 @@ export async function processDiscoveryRun(
 }
 
 const FINDINGS_PLACEHOLDER = 20_000;
+
+/** The widened pass looks up to 24 months out, or to the customer's own end date if later. */
+export function broadenedDateTo(dateTo: string | undefined, today: string): string {
+  const limit = new Date(`${today}T00:00:00.000Z`);
+  limit.setUTCMonth(limit.getUTCMonth() + 24);
+  const wide = limit.toISOString().slice(0, 10);
+  return dateTo && dateTo > wide ? dateTo : wide;
+}
+
+/** Keep the customer's places first, then let nearby and online opportunities in. */
+export function broadenedLocation(location: string | undefined): string {
+  const wanted = (location ?? "").trim();
+  if (!wanted || /^any( location)?$/i.test(wanted)) return "any";
+  return `${wanted} preferred; nearby countries and online/remote also acceptable`;
+}
 
 function mergeEvents(primary: EventInput[], extra: EventInput[]): EventInput[] {
   const seen = new Set(primary.map((event) => `${event.event_name}|${event.event_start}|${event.source_url}`));

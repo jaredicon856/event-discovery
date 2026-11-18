@@ -294,11 +294,19 @@ export default async function OpportunitiesPage({
               </div>
             )}
             {!filteredEmpty && !legacyZeroRun && (activeRun?.status === "no_matches" || (activeRun && !inProgress && activeRun.events_found === 0 && activeRun.status === "completed")) && (
-              <div className="premium-card p-6">
-                <p className="text-lg font-semibold">No opportunities matched this search</p>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-icon-text-light">The search completed and used the displayed credits. Try broader dates, locations, or opportunity types.</p>
-                <Link href="/opportunities?tab=new" className="mt-4 inline-block text-sm font-semibold text-icon-primary">Change search criteria</Link>
-              </div>
+              relatedEvents.length > 0 ? (
+                <div className="premium-card p-6">
+                  <p className="text-lg font-semibold">No exact matches, {relatedEvents.length} close {relatedEvents.length === 1 ? "match" : "matches"} below</p>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-icon-text-light">Nothing fit every filter, so we searched wider. Each suggestion below shows how it differs from what you asked for.</p>
+                  <Link href="/opportunities?tab=new" className="mt-4 inline-block text-sm font-semibold text-icon-primary">Change search criteria</Link>
+                </div>
+              ) : (
+                <div className="premium-card p-6">
+                  <p className="text-lg font-semibold">No opportunities matched this search</p>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-icon-text-light">The search completed and used the displayed credits. Try broader dates, locations, or opportunity types.</p>
+                  <Link href="/opportunities?tab=new" className="mt-4 inline-block text-sm font-semibold text-icon-primary">Change search criteria</Link>
+                </div>
+              )
             )}
             {(activeRun?.status === "failed" || activeRun?.status === "refunded") && (
               <div className="rounded-xl border border-amber-300 bg-amber-50 p-6">
