@@ -242,15 +242,39 @@ interface ExtractionResponse {
   usage: RawUsage;
 }
 
+/**
+ * The model sometimes writes a long array tool argument as a JSON-encoded
+ * string instead of an array, and does it again on the corrective retry.
+ * A live search (18 Nov 2026) lost a complete, well-sourced research pass this
+ * way. A string that parses to an array is the same data; accept it.
+ */
+export function coerceEventsArray(events: unknown): Record<string, unknown>[] | null {
+  if (Array.isArray(events)) return events as Record<string, unknown>[];
+  if (typeof events === "string") {
+    try {
+      const parsed: unknown = JSON.parse(events);
+      if (Array.isArray(parsed)) return parsed as Record<string, unknown>[];
+      if (parsed && typeof parsed === "object" && Array.isArray((parsed as { events?: unknown }).events)) {
+        return (parsed as { events: Record<string, unknown>[] }).events;
+      }
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 function mapExtractedEvents(
   events: unknown,
   sector: string,
   discoveryQuery: string
 ): EventInput[] {
-  if (!Array.isArray(events)) {
-    throw new ExtractionFailureError("Event extraction returned a malformed events collection", false);
+  const list = coerceEventsArray(events);
+  if (!list) {
+    const shape = events === null ? "null" : Array.isArray(events) ? "array" : typeof events;
+    throw new ExtractionFailureError(`Event extraction returned a malformed events collection (${shape})`, false);
   }
-  return events.map((e) => ({
+  return list.map((e) => ({
     sector: (e.sector as string) || sector,
     event_name: e.event_name as string,
     opportunity_type: (e.opportunity_type as string) ?? null,
@@ -371,7 +395,7 @@ ${findings}`,
   }
 
   const input = toolUse.input as { events?: unknown };
-  if (!Array.isArray(input.events)) {
+  if (!coerceEventsArray(input.events)) {
     const { retry, retryTool } = await retryOnce(
       `Your previous response's "events" field was not a valid JSON array. Resubmit the tool call with events as a JSON array — use an empty array if there are truly no events.`
     );
