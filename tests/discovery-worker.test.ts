@@ -6,6 +6,8 @@ import {
   broadenedLocation,
   coverageGaps,
   failExhaustedJobs,
+  mergeEvents,
+  sameEvent,
   processDiscoveryRun,
   UnresolvedChargeError,
   type DiscoveryProviders,
@@ -789,4 +791,36 @@ test("an exact match in one sector still sends fallback research after the uncov
   assert.equal(asked.length >= 1, true, "fallback research runs despite the exact match");
   assert.equal(asked[0].sector, "Real estate & construction", "it looks only at the uncovered sector");
   assert.deepEqual(asked[0].types, ["podcast"], "and only at the uncovered type");
+});
+
+const ev = (event_name: string, event_start: string | null, source_url: string | null = null, extra: object = {}) =>
+  ({ sector: "healthcare", event_name, event_start, source_url, status: "unknown", ...extra }) as unknown as EventInput;
+
+test("the same event under two wordings is one result (live test, 18 Nov)", () => {
+  assert.ok(sameEvent(ev("ASCE 2027 Annual Convention", "2027-03-01"), ev("ASCE 2027 (American Society of Civil Engineers Annual Convention)", "2027-03-01")));
+  assert.ok(
+    sameEvent(
+      ev("Health2047 - 'So You Want to Transform Healthcare'", null, "https://health2047.com/podcast-pitch-guidelines/"),
+      ev("Health2047 - So You Want to Transform Healthcare", null, "https://health2047.com/podcast-pitch-guidelines")
+    )
+  );
+});
+
+test("different events stay apart", () => {
+  assert.equal(sameEvent(ev("ASCE 2027 Annual Convention", "2027-03-01"), ev("ASCE 2027 Annual Convention", "2027-10-01")), false, "different dates");
+  assert.equal(sameEvent(ev("Healthcare Success Podcast", null), ev("Healthcare Leaders Podcast", null)), false);
+  assert.equal(
+    sameEvent(ev("Becker's Healthcare Podcast", null, "https://a.example/podcast"), ev("Becker's Healthcare Conferences Standing Speaker Program", null, "https://b.example/speakers")),
+    false,
+    "one organisation's podcast and speaker program are two opportunities"
+  );
+  assert.equal(sameEvent(ev("Expo Dallas 2027", "2027-05-01"), ev("Expo Austin 2027", "2027-05-01")), false, "each city of a circuit is its own row");
+});
+
+test("merging keeps the fuller of two duplicates", () => {
+  const thin = ev("ASCE 2027 Annual Convention", "2027-03-01");
+  const full = ev("ASCE 2027 (American Society of Civil Engineers Annual Convention)", "2027-03-01", "https://asce.org/convention", { city: "Boston" });
+  const merged = mergeEvents([thin], [full, ev("JLC LIVE 2027", "2027-03-18")]);
+  assert.equal(merged.length, 2);
+  assert.equal(merged[0].source_url, "https://asce.org/convention");
 });
