@@ -182,6 +182,27 @@ export default async function OpportunitiesPage({
     }
   }
 
+  // The run row only counts what happened while the search ran. Contacts
+  // looked up later from a result row belong to the same search, so the
+  // summary adds every charge recorded against it and every contact saved on
+  // its events (Jared, 18 Nov: 3 contacts bought, card said 0 and 20 credits).
+  let runCreditsUsed: number | null = null;
+  if (activeRun && activeRun.billing_mode !== "owner_unbilled") {
+    const { data: runOperations } = await service
+      .from("credit_operations")
+      .select("amount")
+      .eq("profile_id", profile.id)
+      .eq("discovery_run_id", activeRun.id)
+      .in("status", ["charged", "completed"]);
+    if (runOperations) runCreditsUsed = runOperations.reduce((sum, op) => sum + (op.amount ?? 0), 0);
+  }
+  const runContactCount = activeRun
+    ? Math.max(
+        activeRun.contacts_found ?? 0,
+        [...events, ...relatedEvents].reduce((sum, event) => sum + (contactsByEvent[event.id]?.length ?? 0), 0)
+      )
+    : 0;
+
   const exportParams = new URLSearchParams(usp);
   if (!browsingFiltered && !viewAll && latestRunId) exportParams.set("runId", latestRunId);
   const showExports = events.length > 0;
@@ -285,8 +306,8 @@ export default async function OpportunitiesPage({
                   {activeRun.error_message && <p className="mt-2 text-xs text-amber-700">{activeRun.error_message}</p>}
                 </div>
                 <div className="border-l border-icon-border pl-3"><p className="text-xs text-icon-text-light">Matches</p><p className="mt-1 text-2xl font-semibold tracking-[-.04em]">{activeRun.events_found}</p></div>
-                <div className="border-l border-icon-border pl-3"><p className="text-xs text-icon-text-light">Contacts</p><p className="mt-1 text-2xl font-semibold tracking-[-.04em]">{activeRun.contacts_found}</p></div>
-                <div className="border-l border-icon-border pl-3"><p className="text-xs text-icon-text-light">{activeRun.billing_mode === "owner_unbilled" ? "Cost" : "Credits used"}</p><p className="mt-1 text-lg font-semibold">{activeRun.billing_mode === "owner_unbilled" ? "Included" : Math.max(0, activeRun.credits_charged - activeRun.credits_refunded)}</p></div>
+                <div className="border-l border-icon-border pl-3"><p className="text-xs text-icon-text-light">Contacts</p><p className="mt-1 text-2xl font-semibold tracking-[-.04em]">{runContactCount}</p></div>
+                <div className="border-l border-icon-border pl-3"><p className="text-xs text-icon-text-light">{activeRun.billing_mode === "owner_unbilled" ? "Cost" : "Credits used"}</p><p className="mt-1 text-lg font-semibold">{activeRun.billing_mode === "owner_unbilled" ? "Included" : runCreditsUsed ?? Math.max(0, activeRun.credits_charged - activeRun.credits_refunded)}</p></div>
               </section>
             )}
             <FilterBar filters={filters} latestRunId={activeRun?.id ?? latestRunId} allowSave={events.length > 0} viewAll={viewAll} />
