@@ -116,8 +116,8 @@ export async function CustomerOverview() {
                     : "Choose a plan to run discovery and contact research."
                   : trial.speakerIsland
                   ? trialComplete
-                    ? "You've used this month's free searches. They refresh at the start of next month, or choose a plan to keep going."
-                    : `${trial.discoveryRemaining} free ${trial.discoveryRemaining === 1 ? "search" : "searches"}${trial.contactsRemaining ? ` and ${trial.contactsRemaining} contact lookups` : ""} left this month, from Speaker Island.`
+                    ? "You've used this month's free actions. They refresh at the start of next month, or choose a plan to keep going."
+                    : `${trial.discoveryRemaining} free ${trial.discoveryRemaining === 1 ? "action" : "actions"} left this month from Speaker Island. Each one is a search or a contact lookup.`
                   : trialComplete
                   ? "Your results remain available. Choose a plan when you are ready to research more."
                   : `${trial.discoveryRemaining} search and ${trial.contactsRemaining} contact lookups remaining · ${trialDaysLeftLabel(trial.daysLeft)}.`}

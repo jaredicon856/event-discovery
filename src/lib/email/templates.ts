@@ -395,7 +395,7 @@ export function speakerIslandWelcomeEmail(input: {
     title: "Welcome to Event Scout",
     bodyHtml: `
       <p style="margin:0 0 12px;">${hi}</p>
-      <p style="margin:0 0 12px;">As a Speaker Island member you get <strong style="color:${COLORS.ink};">${input.searches} free searches every month</strong> to find speaking events, conferences and calls for speakers that fit your topic.</p>
+      <p style="margin:0 0 12px;">As a Speaker Island member you get <strong style="color:${COLORS.ink};">${input.searches} free searches every month</strong> to find speaking events, conferences and calls for speakers that fit your topic. You can also spend any of them on finding the organizer's contact for an event.</p>
       <p style="margin:0;">Your searches refresh on the 1st of each month. Open Event Scout any time from the Marketplace in your Speaker Island Portal.</p>
     `,
     ctaLabel: "Run my first search",
@@ -405,7 +405,7 @@ export function speakerIslandWelcomeEmail(input: {
     subject,
     "",
     input.firstName ? `Hi ${input.firstName},` : "Hi,",
-    `As a Speaker Island member you get ${input.searches} free searches every month to find speaking events, conferences and calls for speakers that fit your topic.`,
+    `As a Speaker Island member you get ${input.searches} free searches every month to find speaking events, conferences and calls for speakers that fit your topic. You can also spend any of them on finding the organizer's contact for an event.`,
     "Your searches refresh on the 1st of each month. Open Event Scout any time from the Marketplace in your Speaker Island Portal.",
     `Run my first search: ${input.searchUrl}`,
     "",

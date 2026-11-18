@@ -28,9 +28,12 @@ export function effectiveTrial(
     expiresMs == null || expired
       ? expiresMs == null ? null : 0
       : Math.ceil((expiresMs - now.getTime()) / (1000 * 60 * 60 * 24));
+  // A Speaker Island member's allowance is one pool: each search or contact
+  // lookup takes one action from discovery_remaining (migration 0037).
+  const speakerIsland = row.source === "speaker_island";
   return {
     discoveryRemaining: expired ? 0 : row.discovery_remaining,
-    contactsRemaining: expired ? 0 : row.contact_lookups_remaining,
+    contactsRemaining: expired ? 0 : speakerIsland ? row.discovery_remaining : row.contact_lookups_remaining,
     expiresAt: row.expires_at,
     expired,
     daysLeft,
