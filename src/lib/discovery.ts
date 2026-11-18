@@ -415,7 +415,7 @@ export async function processDiscoveryRun(
     let extractionTruncated = false;
     const extractionArtifact = await loadArtifact("extraction");
     if (extractionArtifact?.events) {
-      extractedEvents = extractionArtifact.events as EventInput[];
+      extractedEvents = mergeEvents(extractionArtifact.events as EventInput[], []);
       extractionTruncated = Boolean(extractionArtifact.truncated);
     } else {
       const extracted = await runExtraction(findings, "extraction");
@@ -431,7 +431,7 @@ export async function processDiscoveryRun(
         );
         throw new Error("budget_exhausted");
       }
-      extractedEvents = extracted.events;
+      extractedEvents = mergeEvents(extracted.events, []);
       extractionTruncated = extracted.truncated;
       await completeStage("extraction", {
         candidateCount: extractedEvents.length,
@@ -981,14 +981,61 @@ export function coverageGaps(
   return { sectors, types };
 }
 
-function mergeEvents(primary: EventInput[], extra: EventInput[]): EventInput[] {
-  const seen = new Set(primary.map((event) => `${event.event_name}|${event.event_start}|${event.source_url}`));
-  const merged = [...primary];
-  for (const event of extra) {
-    const key = `${event.event_name}|${event.event_start}|${event.source_url}`;
-    if (!seen.has(key)) {
-      seen.add(key);
+const NAME_FILLER = new Set(["the", "a", "an", "of", "and", "for", "in", "on", "to", "annual", "conference", "podcast"]);
+
+/** The words of an event name that identify it: no case, punctuation, quotes or filler words. */
+function nameWords(name: string | null | undefined): Set<string> {
+  const words = (name ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .split(" ")
+    .filter((word) => word && !NAME_FILLER.has(word));
+  return new Set(words);
+}
+
+/**
+ * Two rows for one event. The same event often comes back from two research
+ * passes under different wording ("ASCE 2027 Annual Convention" and "ASCE
+ * 2027 (American Society of Civil Engineers Annual Convention)"), which an
+ * exact-match key let through twice (live test, 18 Nov 2026). Same date (or
+ * both undated) and one name's identifying words all inside the other's.
+ */
+export function sameEvent(a: EventInput, b: EventInput): boolean {
+  if ((a.event_start ?? null) !== (b.event_start ?? null)) return false;
+  const wordsA = nameWords(a.event_name);
+  const wordsB = nameWords(b.event_name);
+  if (wordsA.size === 0 || wordsB.size === 0) return false;
+  if (!a.event_start) {
+    // Undated rows (podcasts, standing programs) share a lot of words within
+    // one organisation ("Becker's Healthcare Podcast" vs "Becker's Healthcare
+    // speaker program"), so they need the same page or the same name.
+    const sameUrl = Boolean(a.source_url) && sameLink(a.source_url, b.source_url);
+    const sameName = [...wordsA].join(" ") === [...wordsB].join(" ");
+    return sameUrl || sameName;
+  }
+  const [small, large] = wordsA.size <= wordsB.size ? [wordsA, wordsB] : [wordsB, wordsA];
+  return [...small].every((word) => large.has(word));
+}
+
+function sameLink(a: string | null | undefined, b: string | null | undefined): boolean {
+  const clean = (url: string | null | undefined) =>
+    (url ?? "").toLowerCase().replace(/^https?:\/\/(www\.)?/, "").replace(/[?#].*$/, "").replace(/\/+$/, "");
+  return clean(a) !== "" && clean(a) === clean(b);
+}
+
+/** How much a row tells the customer; the fuller of two duplicates is kept. */
+function filledFields(event: EventInput): number {
+  return Object.values(event).filter((value) => value !== null && value !== undefined && value !== "").length;
+}
+
+export function mergeEvents(primary: EventInput[], extra: EventInput[]): EventInput[] {
+  const merged: EventInput[] = [];
+  for (const event of [...primary, ...extra]) {
+    const index = merged.findIndex((kept) => sameEvent(kept, event));
+    if (index === -1) {
       merged.push(event);
+    } else if (filledFields(event) > filledFields(merged.at(index) as EventInput)) {
+      merged.splice(index, 1, event);
     }
   }
   return merged;
