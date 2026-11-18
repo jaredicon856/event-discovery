@@ -34,11 +34,25 @@ export const RESEARCH_MAX_SEARCHES = 4;
  * entirely for lack of output-token room. See also the fallback-research
  * trigger in discovery.ts, which now also re-runs on a truncated pass.
  */
-export const RESEARCH_MAX_TOKENS = 4000;
-export const FALLBACK_MAX_SEARCHES = 2;
-export const FALLBACK_MAX_TOKENS = 2200;
-export const EXTRACTION_MAX_TOKENS = 4000;
-export const EXTRACTION_RETRY_MAX_TOKENS = 2500;
+//
+// Raised again (18 Nov 2026): the model thinks by default and its thinking
+// counts against max_tokens, so 4000 left too little for the answer. Every
+// customer search on record had a truncated research pass; one returned 11
+// bare event names with no dates or links, which validation discarded, and
+// another (a Speaker Island member's, 10 Nov) saved nothing at all. The
+// prompts now also ask for a bounded, compact list, so these ceilings are
+// headroom, not the expected length.
+export const RESEARCH_MAX_TOKENS = 10000;
+export const FALLBACK_MAX_SEARCHES = 3;
+export const FALLBACK_MAX_TOKENS = 8000;
+// Extraction runs with thinking off, so all of this goes to the event rows.
+// The retry used to get a SMALLER ceiling than the call that was cut off,
+// which guaranteed it would be cut off too.
+export const EXTRACTION_MAX_TOKENS = 8000;
+export const EXTRACTION_RETRY_MAX_TOKENS = 8000;
+// The widened pass that runs when the exact and fallback passes found nothing.
+export const BROADENED_MAX_SEARCHES = 3;
+export const BROADENED_MAX_TOKENS = 8000;
 export const FINDINGS_CHAR_BUDGET = 48_000;
 
 const INPUT_PER_TOKEN = 0.000002;

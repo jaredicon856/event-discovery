@@ -74,7 +74,7 @@ export interface ResearchParams {
   dateTo?: string;
   types?: string[];
   location?: string;
-  strategy?: "primary" | "alternate_sources";
+  strategy?: "primary" | "alternate_sources" | "broadened";
   maxTokens?: number;
   maxSearches?: number;
 }
@@ -90,7 +90,9 @@ export async function researchCategory(
   const strategyNote =
     params.strategy === "alternate_sources"
       ? `Use a different source pattern than a generic web sweep: association calendars, society CFP pages, university executive programs, podcast networks, and standing speaker-bureau calls. Do not relax sector, location, date, or type.`
-      : `Prefer official event, association, and CFP pages.`;
+      : params.strategy === "broadened"
+        ? `Earlier, stricter searches for this request found nothing usable. Widen the net: keep the sector and the speaker's topic, but accept any of the opportunity types, nearby or online locations, and dates up to 24 months out. Prefer the closest fits; each one will be shown to the customer as a near match with what differs.`
+        : `Prefer official event, association, and CFP pages.`;
 
   const res = await client.messages.create({
     model: MODEL,
@@ -128,7 +130,11 @@ present, be a podcast guest, or apply to a standing speaker program. Include:
 - Podcasts and standing speaker programs that currently accept pitches even if they have no single event date
 - Association/membership bodies with a standing call-for-speakers program
 
-For each one you find, report:
+Report at most 12 opportunities, best fits first. A full entry with a date and a source URL is worth
+more than a longer list of names, so finish each entry before starting the next and stop adding
+entries rather than leaving one half done.
+
+For each one you find, report (one short line per field):
 - Event/organization name
 - Opportunity type (conference/panel/workshop/podcast/standing program/etc)
 - Start and end dates when published; for ongoing podcasts or standing programs say they are ongoing and do not invent a date
@@ -288,6 +294,11 @@ export async function extractEvents(params: {
     return getClient().messages.create({
       model: MODEL,
       max_tokens: tokenBudget,
+      // This model thinks by default, and thinking counts against max_tokens:
+      // it used to eat the room the event rows needed, cutting the tool call
+      // off before a single event was saved. Converting notes to rows needs
+      // no reasoning.
+      thinking: { type: "disabled" },
       tool_choice: { type: "tool", name: "submit_events" },
       tools: [
         {
@@ -306,6 +317,7 @@ fabricate dates, deadlines, costs, or openness.
 Set status to "open" ONLY when the findings quote a currently open CFP, pitch form, or stated open call.
 If a path is mentioned without evidence it is currently open, use "unknown".
 Podcasts and standing speaker programs may have null event_start; put "standing/ongoing" in date_notes instead of inventing a date.
+Keep every free-text field under 25 words. Always copy the event's source URL when the findings give one.
 ${extraInstruction}
 
 Findings:
@@ -340,7 +352,7 @@ ${findings}`,
 
   if (truncated && (!toolUse || toolUse.type !== "tool_use")) {
     const { retry, retryTool } = await retryOnce(
-      "The previous extraction response was truncated. Submit as many complete event objects as you can, omitting incomplete trailing items."
+      "The previous extraction response was truncated. Submit at most the 10 best-fitting events as complete objects, with every free-text field under 15 words, omitting the rest."
     );
     if (!retryTool || retryTool.type !== "tool_use") {
       throw new ExtractionFailureError("Event extraction was truncated and produced no structured results", true);
