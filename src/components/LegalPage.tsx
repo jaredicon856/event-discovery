@@ -1,17 +1,30 @@
 import Image from "next/image";
 import Link from "next/link";
 import { LEGAL_CONTACT_EMAIL, LEGAL_UPDATED } from "@/lib/legal";
+import { getSupabaseServerClient } from "@/lib/supabaseServer";
 
-export function LegalPage({ title, intro, children }: { title: string; intro: string; children: React.ReactNode }) {
+export async function LegalPage({ title, intro, children }: { title: string; intro: string; children: React.ReactNode }) {
+  let signedIn = false;
+  try {
+    const auth = await getSupabaseServerClient();
+    const {
+      data: { user },
+    } = await auth.auth.getUser();
+    signedIn = Boolean(user);
+  } catch {
+    signedIn = false;
+  }
+  const home = signedIn ? "/" : "/login";
+
   return (
     <div className="theme-panel min-h-screen bg-icon-background text-icon-text">
       <header className="bg-[#061b1c] px-6 py-5">
         <div className="mx-auto flex max-w-3xl items-center justify-between">
-          <Link href="/login" aria-label="Event Scout sign in">
+          <Link href={home} aria-label="Event Scout home">
             <Image src="/brand/icon-logo.webp" alt="Project ICON" width={112} height={40} priority />
           </Link>
-          <Link href="/login" className="text-sm font-medium text-[#e5c98e] hover:underline">
-            Sign in
+          <Link href={home} className="text-sm font-medium text-[#e5c98e] hover:underline">
+            {signedIn ? "Back to Event Scout" : "Sign in"}
           </Link>
         </div>
       </header>
