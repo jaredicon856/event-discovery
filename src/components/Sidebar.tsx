@@ -187,6 +187,8 @@ function UserMenu({
         <p className="truncate px-3 py-2 text-xs text-icon-text-light">{email}</p>
         <Link href="/settings/profile" onClick={onNavigate} className="block rounded-lg px-3 py-2 text-sm hover:bg-white/[0.07]">My Profile</Link>
         <Link href="/settings/security" onClick={onNavigate} className="block rounded-lg px-3 py-2 text-sm hover:bg-white/[0.07]">Account &amp; Security</Link>
+        <Link href="/privacy" onClick={onNavigate} className="block rounded-lg px-3 py-2 text-sm hover:bg-white/[0.07]">Privacy Policy</Link>
+        <Link href="/terms" onClick={onNavigate} className="block rounded-lg px-3 py-2 text-sm hover:bg-white/[0.07]">Terms of Service</Link>
         <button onClick={onLogout} className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-white/[0.07]">Sign out</button>
       </div>
     </details>

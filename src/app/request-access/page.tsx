@@ -55,6 +55,10 @@ export default function RequestAccessPage() {
         <p className="mt-5 text-center text-sm text-icon-text-light">
           Already invited? <Link href="/login" className="text-icon-primary hover:underline">Sign in</Link>
         </p>
+        <p className="mt-3 text-center text-xs leading-5 text-icon-text-light">
+          By submitting you agree to our <Link href="/terms" className="underline hover:text-icon-text">Terms of Service</Link> and{" "}
+          <Link href="/privacy" className="underline hover:text-icon-text">Privacy Policy</Link>.
+        </p>
       </div>
     </main>
   );

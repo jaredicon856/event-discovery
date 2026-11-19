@@ -175,6 +175,10 @@ export function SignupForm() {
           </form>
           <p className="mt-6 text-center text-sm text-[#62645f]">Already have an account? <Link href="/login" className="font-semibold text-[#8d6728] hover:underline">Sign in</Link></p>
           <p className="mt-3 text-center text-xs leading-5 text-[#777972]">No card required. No automatic charges.</p>
+          <p className="mt-3 text-center text-xs leading-5 text-[#777972]">
+            By creating a workspace you agree to our <Link href="/terms" className="underline hover:text-[#171813]">Terms of Service</Link> and{" "}
+            <Link href="/privacy" className="underline hover:text-[#171813]">Privacy Policy</Link>.
+          </p>
         </div>
       </section>
     </main>

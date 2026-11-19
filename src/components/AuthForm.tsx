@@ -312,6 +312,10 @@ export function AuthForm() {
           <p className="mt-3 text-center text-sm">
             New to Event Scout? <Link href="/signup" className="font-medium text-icon-primary hover:underline">Try one search free</Link>
           </p>
+          <p className="mt-6 text-center text-xs leading-5 text-icon-text-light">
+            By signing in you agree to our <Link href="/terms" className="underline hover:text-icon-text">Terms of Service</Link> and{" "}
+            <Link href="/privacy" className="underline hover:text-icon-text">Privacy Policy</Link>.
+          </p>
         </div>
       </section>
     </main>
