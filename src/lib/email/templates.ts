@@ -2,7 +2,8 @@ if (typeof window !== "undefined") {
   throw new Error("src/lib/email/templates.ts must not be imported from a Client Component module.");
 }
 
-import { EMAIL_LOGO_CID, emailReplyTo } from "@/lib/email/resend";
+import { EMAIL_LOGO_CID, appOrigin, emailReplyTo } from "@/lib/email/resend";
+import { legalPostalAddress } from "@/lib/legalAddress";
 
 const COLORS = {
   gold: "#b88932",
@@ -21,6 +22,8 @@ type ShellInput = {
   ctaLabel?: string;
   ctaUrl?: string;
   footerNote?: string;
+  /** One-click unsubscribe link for lifecycle emails (not for receipts or security emails). */
+  unsubscribeUrl?: string;
   /** Prefer CID so the mark renders without a public host. */
   logoSrc?: string;
 };
@@ -34,6 +37,7 @@ function escapeHtml(value: string): string {
 }
 
 function shell(input: ShellInput): string {
+  const address = legalPostalAddress();
   const logoSrc = input.logoSrc ?? `cid:${EMAIL_LOGO_CID}`;
   const cta =
     input.ctaLabel && input.ctaUrl
@@ -128,7 +132,16 @@ function shell(input: ShellInput): string {
                 input.footerNote ??
                 `Questions? Reply anytime — <a href="mailto:${escapeHtml(emailReplyTo())}" style="color:${COLORS.gold};text-decoration:none;">${escapeHtml(emailReplyTo())}</a>`
               }
-              <div style="margin-top:10px;letter-spacing:0.04em;">Project ICON</div>
+              <div style="margin-top:10px;letter-spacing:0.04em;">Project ICON${address ? ` &middot; ${escapeHtml(address)}` : ""}</div>
+              <div style="margin-top:6px;">
+                <a href="${escapeHtml(appOrigin())}/privacy" style="color:${COLORS.muted};text-decoration:underline;">Privacy Policy</a>
+                &nbsp;&middot;&nbsp;
+                <a href="${escapeHtml(appOrigin())}/terms" style="color:${COLORS.muted};text-decoration:underline;">Terms</a>${
+                  input.unsubscribeUrl
+                    ? `&nbsp;&middot;&nbsp;<a href="${escapeHtml(input.unsubscribeUrl)}" style="color:${COLORS.muted};text-decoration:underline;">Unsubscribe</a>`
+                    : ""
+                }
+              </div>
             </td>
           </tr>
         </table>
@@ -359,6 +372,7 @@ export function resetPasswordEmail(input: {
 
 export function trialCompleteEmail(input: {
   billingUrl: string;
+  unsubscribeUrl?: string;
 }): { subject: string; html: string; text: string } {
   const subject = "Your free Event Scout search is complete";
   const html = shell({
@@ -370,6 +384,7 @@ export function trialCompleteEmail(input: {
     `,
     ctaLabel: "View plans",
     ctaUrl: input.billingUrl,
+    unsubscribeUrl: input.unsubscribeUrl,
   });
   const text = [
     "Your free Event Scout search is complete",
@@ -377,6 +392,7 @@ export function trialCompleteEmail(input: {
     "You've used your trial discovery search. Your results stay in your workspace.",
     `View plans: ${input.billingUrl}`,
     "",
+    ...(input.unsubscribeUrl ? [`Unsubscribe: ${input.unsubscribeUrl}`] : []),
     `Questions? ${emailReplyTo()}`,
   ].join("\n");
   return { subject, html, text };
@@ -387,6 +403,7 @@ export function speakerIslandWelcomeEmail(input: {
   firstName: string;
   searches: number;
   searchUrl: string;
+  unsubscribeUrl?: string;
 }): { subject: string; html: string; text: string } {
   const subject = `Your ${input.searches} free Event Scout searches are ready`;
   const hi = input.firstName ? `Hi ${escapeHtml(input.firstName)},` : "Hi,";
@@ -400,6 +417,7 @@ export function speakerIslandWelcomeEmail(input: {
     `,
     ctaLabel: "Run my first search",
     ctaUrl: input.searchUrl,
+    unsubscribeUrl: input.unsubscribeUrl,
   });
   const text = [
     subject,
@@ -409,6 +427,7 @@ export function speakerIslandWelcomeEmail(input: {
     "Your searches refresh on the 1st of each month. Open Event Scout any time from the Marketplace in your Speaker Island Portal.",
     `Run my first search: ${input.searchUrl}`,
     "",
+    ...(input.unsubscribeUrl ? [`Unsubscribe: ${input.unsubscribeUrl}`] : []),
     `Questions? ${emailReplyTo()}`,
   ].join("\n");
   return { subject, html, text };
@@ -417,6 +436,7 @@ export function speakerIslandWelcomeEmail(input: {
 export function trialEndingSoonEmail(input: {
   searchUrl: string;
   endsOnLabel: string;
+  unsubscribeUrl?: string;
 }): { subject: string; html: string; text: string } {
   const subject = "Your free Event Scout trial ends in 2 days";
   const html = shell({
@@ -428,6 +448,7 @@ export function trialEndingSoonEmail(input: {
     `,
     ctaLabel: "Run my free search",
     ctaUrl: input.searchUrl,
+    unsubscribeUrl: input.unsubscribeUrl,
   });
   const text = [
     subject,
@@ -436,6 +457,7 @@ export function trialEndingSoonEmail(input: {
     "You still have one discovery search and two organizer contact lookups to use.",
     `Run my free search: ${input.searchUrl}`,
     "",
+    ...(input.unsubscribeUrl ? [`Unsubscribe: ${input.unsubscribeUrl}`] : []),
     `Questions? ${emailReplyTo()}`,
   ].join("\n");
   return { subject, html, text };
@@ -443,6 +465,7 @@ export function trialEndingSoonEmail(input: {
 
 export function trialExpiredEmail(input: {
   billingUrl: string;
+  unsubscribeUrl?: string;
 }): { subject: string; html: string; text: string } {
   const subject = "Your free Event Scout trial has ended";
   const html = shell({
@@ -454,6 +477,7 @@ export function trialExpiredEmail(input: {
     `,
     ctaLabel: "View plans",
     ctaUrl: input.billingUrl,
+    unsubscribeUrl: input.unsubscribeUrl,
   });
   const text = [
     subject,
@@ -461,6 +485,7 @@ export function trialExpiredEmail(input: {
     "Your 7-day free trial is over. Your workspace and anything you saved stay available.",
     `View plans: ${input.billingUrl}`,
     "",
+    ...(input.unsubscribeUrl ? [`Unsubscribe: ${input.unsubscribeUrl}`] : []),
     `Questions? ${emailReplyTo()}`,
   ].join("\n");
   return { subject, html, text };
@@ -555,4 +580,57 @@ export function supabaseResetPasswordTemplateHtml(): string {
     ctaUrl: "{{ .ConfirmationURL }}",
     logoSrc: "{{ .SiteURL }}/brand/icon-mark-square.png",
   });
+}
+
+// Sent to the owner when a customer asks to delete their account.
+export function privacyRequestOwnerEmail(input: {
+  customerEmail: string;
+  customerName: string | null;
+  requestedAt: string;
+  adminUrl: string;
+}): { subject: string; html: string; text: string } {
+  const subject = `Account deletion request from ${input.customerEmail}`;
+  const who = input.customerName ? `${escapeHtml(input.customerName)} (${escapeHtml(input.customerEmail)})` : escapeHtml(input.customerEmail);
+  const html = shell({
+    preheader: "Privacy laws set a deadline of about 30 to 45 days to respond.",
+    title: "Deletion request",
+    bodyHtml: `
+      <p style="margin:0 0 12px;">${who} asked to delete their Event Scout account and data.</p>
+      <p style="margin:0;">Please respond within 30 days. Open Admin to review and mark it done once the account has been removed.</p>
+    `,
+    ctaLabel: "Open Admin",
+    ctaUrl: input.adminUrl,
+    footerNote: "Owner alert from Event Scout.",
+  });
+  const text = [
+    subject,
+    "",
+    `${input.customerName ? `${input.customerName} (${input.customerEmail})` : input.customerEmail} asked to delete their Event Scout account and data, on ${input.requestedAt}.`,
+    "Please respond within 30 days, then mark it done in Admin.",
+    input.adminUrl,
+  ].join("\n");
+  return { subject, html, text };
+}
+
+// Sent to the customer to confirm we received their deletion request.
+export function privacyRequestConfirmationEmail(): { subject: string; html: string; text: string } {
+  const subject = "We received your account deletion request";
+  const html = shell({
+    preheader: "We will confirm once your account and data have been removed.",
+    title: "Request received",
+    bodyHtml: `
+      <p style="margin:0 0 12px;">We received your request to delete your Event Scout account and personal data.</p>
+      <p style="margin:0;">We will respond within 30 days. Some records, such as payment and tax records, may need to be kept for legal reasons. If you did not make this request, reply to this email right away.</p>
+    `,
+  });
+  const text = [
+    subject,
+    "",
+    "We received your request to delete your Event Scout account and personal data.",
+    "We will respond within 30 days. Some records, such as payment and tax records, may need to be kept for legal reasons.",
+    "If you did not make this request, reply to this email right away.",
+    "",
+    `Questions? ${emailReplyTo()}`,
+  ].join("\n");
+  return { subject, html, text };
 }

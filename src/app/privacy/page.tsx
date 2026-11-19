@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { LegalContact, LegalList, LegalPage, LegalSection } from "@/components/LegalPage";
+import { legalPostalAddress } from "@/lib/legalAddress";
 
 export const metadata: Metadata = {
   title: "Privacy Policy | Event Scout",
@@ -7,6 +8,7 @@ export const metadata: Metadata = {
 };
 
 export default function PrivacyPage() {
+  const address = legalPostalAddress();
   return (
     <LegalPage
       title="Privacy Policy"
@@ -43,7 +45,8 @@ export default function PrivacyPage() {
           items={[
             "To provide Event Scout: run searches, show results, reveal contacts, charge and refund credits, and manage your plan.",
             "To keep the service secure: prevent abuse, enforce trial limits, and investigate problems.",
-            "To contact you: verification and password emails, receipts and billing notices, and reminders about your free trial. We do not send third-party advertising.",
+            "To contact you: verification and password emails, receipts and billing notices, and reminders about your free trial. You can unsubscribe from trial reminder and welcome emails with the link in each one. We still send account emails such as receipts and security messages. We do not send third-party advertising.",
+            "To keep a record of the date and version of the Terms and Privacy Policy you accepted.",
             "To improve the service: understand what works and fix what does not, using usage and cost data.",
             "To meet legal obligations such as tax and accounting records.",
           ]}
@@ -91,8 +94,9 @@ export default function PrivacyPage() {
           Depending on where you live (for example California, Canada or the European Economic Area), you may
           have the right to access, correct, delete or export your personal information, to object to or
           restrict certain uses, and to withdraw consent. You can update your profile in the app under Profile
-          &amp; Settings. For anything else, including a full account deletion, contact <LegalContact />. We
-          will respond within the time the law requires and will not treat you differently for using your rights.
+          &amp; Settings. Under Account &amp; Security you can download a copy of your data and ask us to delete
+          your account. For anything else, contact <LegalContact />. We aim to respond to requests within 30
+          days, or sooner if the law requires, and will not treat you differently for using your rights.
         </p>
       </LegalSection>
 
@@ -126,6 +130,7 @@ export default function PrivacyPage() {
         <p>
           Questions or requests about privacy: contact <LegalContact />.
         </p>
+        {address && <p>Project ICON, {address}</p>}
       </LegalSection>
     </LegalPage>
   );

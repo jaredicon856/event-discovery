@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireActiveUser } from "@/lib/access";
 import { AccountSecurityPanel } from "@/components/AccountSecurityPanel";
+import { PrivacyDataPanel } from "@/components/PrivacyDataPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,13 @@ export default async function SecuritySettingsPage() {
   const { data: passwordEnabled } = await service.rpc("auth_password_enabled", {
     p_profile_id: profile.id,
   });
+  const { data: openDelete } = await service
+    .from("privacy_requests")
+    .select("created_at")
+    .eq("profile_id", profile.id)
+    .eq("kind", "delete")
+    .eq("status", "open")
+    .maybeSingle();
 
   return (
     <div className="min-h-screen px-5 py-7 sm:px-8 lg:px-10">
@@ -28,6 +36,9 @@ export default async function SecuritySettingsPage() {
             providers={providers}
             passwordEnabled={Boolean(passwordEnabled)}
           />
+        </div>
+        <div className="mt-6">
+          <PrivacyDataPanel openDeleteRequestedAt={openDelete?.created_at ?? null} />
         </div>
       </div>
     </div>

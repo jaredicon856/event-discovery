@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { appOrigin, sendEmail } from "@/lib/email/resend";
 import { trialEndingSoonEmail, trialExpiredEmail } from "@/lib/email/templates";
+import { unsubscribeFor } from "@/lib/email/unsubscribe";
 import { formatAccountDate } from "@/lib/timezone";
 
 export const TRIAL_REMINDER_DAYS_BEFORE = 2;
@@ -29,6 +30,7 @@ export async function findDueTrials(supabase: SupabaseClient, kind: Kind, now: D
     .gt("discovery_remaining", 0)
     .is(SENT_COLUMN[kind], null)
     .eq("profiles.access_status", "active")
+    .is("profiles.email_opt_out_at", null)
     .neq("profiles.role", "super_admin");
   query =
     kind === "ending"
@@ -65,19 +67,22 @@ async function sendOne(supabase: SupabaseClient, kind: Kind, row: TrialRow): Pro
   if (error) throw new Error(error.message);
   if (!claimed) return false;
 
+  const unsub = unsubscribeFor(row.profile_id);
   const template =
     kind === "ending"
       ? trialEndingSoonEmail({
           searchUrl: `${appOrigin()}/opportunities?tab=new`,
           endsOnLabel: formatAccountDate(row.expires_at),
+          unsubscribeUrl: unsub?.url,
         })
-      : trialExpiredEmail({ billingUrl: `${appOrigin()}/billing#plans` });
+      : trialExpiredEmail({ billingUrl: `${appOrigin()}/billing#plans`, unsubscribeUrl: unsub?.url });
   try {
     await sendEmail({
       to: row.profiles!.email!.trim().toLowerCase(),
       subject: template.subject,
       html: template.html,
       text: template.text,
+      headers: unsub?.headers,
       tags: [
         { name: "category", value: kind === "ending" ? "trial_ending" : "trial_expired" },
         { name: "profile", value: row.profile_id.replace(/-/g, "") },

@@ -4,6 +4,7 @@ import { AdminConsole } from "@/components/AdminConsole";
 import { getCreditBalance } from "@/lib/credits";
 import { FEATURE_FLAG_KEYS } from "@/lib/featureFlags";
 import { redirect } from "next/navigation";
+import { PrivacyRequestsPanel } from "@/components/PrivacyRequestsPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,13 @@ export default async function AdminPage({ searchParams }: { searchParams: Search
   const page = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
   const selectedMemberId = one(params.member);
   const from = (page - 1) * MEMBERS_PER_PAGE;
+
+  const { data: openPrivacyRequests } = await supabase
+    .from("privacy_requests")
+    .select("id, email, created_at")
+    .eq("kind", "delete")
+    .eq("status", "open")
+    .order("created_at", { ascending: true });
 
   let membersQuery = supabase
     .from("profiles")
@@ -213,6 +221,8 @@ export default async function AdminPage({ searchParams }: { searchParams: Search
             <p className="mt-2 text-xs text-icon-text-light">Provider requests recorded</p>
           </div>
         </div>
+
+        {(openPrivacyRequests ?? []).length > 0 && <PrivacyRequestsPanel requests={openPrivacyRequests ?? []} />}
 
         <AdminConsole
           actorId={actor.id}

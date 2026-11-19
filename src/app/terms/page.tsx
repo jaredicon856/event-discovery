@@ -17,7 +17,7 @@ export default function TermsPage() {
         <p>
           Event Scout is a business service for adults aged 18 or over. If you use it for a company, you confirm
           you can bind that company to these terms. Access may be by invitation, free trial, paid plan, or through
-          the Speaker Island Portal.
+          the Speaker Island Portal. We keep a record of the date and version of the terms you accept.
         </p>
       </LegalSection>
 

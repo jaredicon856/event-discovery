@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabaseBrowser";
 import { GOOGLE_OUTBOUND_STEPS, SignInTransition } from "@/components/SignInTransition";
+import { LEGAL_VERSION } from "@/lib/legal";
 
 function pause(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -21,14 +22,20 @@ export function SignupForm() {
   const [signInStep, setSignInStep] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [agreed, setAgreed] = useState(false);
 
   function callbackUrl() {
     const callback = new URL("/auth/callback", window.location.origin);
     callback.searchParams.set("next", "/onboarding");
+    if (agreed) callback.searchParams.set("terms", "1");
     return callback.toString();
   }
 
   async function signupWithGoogle() {
+    if (!agreed) {
+      setError("Please agree to the Terms of Service and Privacy Policy to continue.");
+      return;
+    }
     setLoading("google");
     setSignInStep(0);
     setError(null);
@@ -55,6 +62,10 @@ export function SignupForm() {
 
   async function signupWithEmail(event: React.FormEvent) {
     event.preventDefault();
+    if (!agreed) {
+      setError("Please agree to the Terms of Service and Privacy Policy to continue.");
+      return;
+    }
     setLoading("email");
     setError(null);
     setMessage(null);
@@ -73,7 +84,10 @@ export function SignupForm() {
     const { data, error: signupError } = await getSupabaseBrowserClient().auth.signUp({
       email,
       password,
-      options: { emailRedirectTo: callbackUrl() },
+      options: {
+        emailRedirectTo: callbackUrl(),
+        data: { terms_version: LEGAL_VERSION, terms_accepted_at: new Date().toISOString() },
+      },
     });
     if (signupError) {
       setError(signupError.message);
@@ -134,11 +148,24 @@ export function SignupForm() {
           <h2 className="mt-3 text-3xl font-semibold tracking-[-0.02em]">Start your free search</h2>
           <p className="mt-2 text-sm leading-6 text-[#62645f]">One discovery search and contact research for up to two returned events.</p>
 
+          <label className="mt-6 flex cursor-pointer items-start gap-3 text-sm leading-6 text-[#3f413c]">
+            <input
+              type="checkbox"
+              checked={agreed}
+              onChange={(event) => setAgreed(event.target.checked)}
+              className="mt-1 h-4 w-4 cursor-pointer accent-[#b0863c]"
+            />
+            <span>
+              I agree to the <Link href="/terms" target="_blank" className="font-medium text-[#8d6728] underline">Terms of Service</Link> and{" "}
+              <Link href="/privacy" target="_blank" className="font-medium text-[#8d6728] underline">Privacy Policy</Link>.
+            </span>
+          </label>
+
           <button
             type="button"
             onClick={signupWithGoogle}
-            disabled={loading !== null}
-            className="mt-7 flex min-h-12 w-full cursor-pointer items-center justify-center gap-3 rounded-lg border border-[#b0863c]/40 bg-white px-4 text-sm font-semibold shadow-[0_0_0_1px_rgba(176,134,60,0.08)] transition-colors duration-200 hover:border-[#b0863c] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b0863c] disabled:cursor-wait disabled:opacity-60"
+            disabled={loading !== null || !agreed}
+            className="mt-5 flex min-h-12 w-full cursor-pointer items-center justify-center gap-3 rounded-lg border border-[#b0863c]/40 bg-white px-4 text-sm font-semibold shadow-[0_0_0_1px_rgba(176,134,60,0.08)] transition-colors duration-200 hover:border-[#b0863c] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b0863c] disabled:cursor-wait disabled:opacity-60"
           >
             <span aria-hidden className="text-lg font-bold">G</span>
             {loading === "google" ? "Connecting…" : "Continue with Google"}
@@ -169,16 +196,12 @@ export function SignupForm() {
             </label>
             {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p>}
             {message && <p role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm leading-6 text-emerald-900">{message}</p>}
-            <button disabled={loading !== null} className="min-h-11 w-full cursor-pointer rounded-lg bg-[#b0863c] px-4 text-sm font-semibold text-white transition-colors duration-200 hover:bg-[#96712f] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b0863c] disabled:cursor-wait disabled:opacity-60">
+            <button disabled={loading !== null || !agreed} className="min-h-11 w-full cursor-pointer rounded-lg bg-[#b0863c] px-4 text-sm font-semibold text-white transition-colors duration-200 hover:bg-[#96712f] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b0863c] disabled:cursor-wait disabled:opacity-60">
               {loading === "email" ? "Creating workspace…" : "Create free workspace"}
             </button>
           </form>
           <p className="mt-6 text-center text-sm text-[#62645f]">Already have an account? <Link href="/login" className="font-semibold text-[#8d6728] hover:underline">Sign in</Link></p>
           <p className="mt-3 text-center text-xs leading-5 text-[#777972]">No card required. No automatic charges.</p>
-          <p className="mt-3 text-center text-xs leading-5 text-[#777972]">
-            By creating a workspace you agree to our <Link href="/terms" className="underline hover:text-[#171813]">Terms of Service</Link> and{" "}
-            <Link href="/privacy" className="underline hover:text-[#171813]">Privacy Policy</Link>.
-          </p>
         </div>
       </section>
     </main>

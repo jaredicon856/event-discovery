@@ -4,6 +4,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase";
 import { hashInvitationToken } from "@/lib/invitations";
 import { isProfileComplete } from "@/lib/profileCompletion";
 import { sendOwnerNewTrialAlert } from "@/lib/email/notify";
+import { LEGAL_VERSION } from "@/lib/legal";
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
@@ -46,6 +47,12 @@ export async function GET(request: NextRequest) {
   }
 
   const service = getSupabaseServiceClient();
+  // A box ticked on the signup form travels here as ?terms=1 and is kept on the account until their first visit records it.
+  if (searchParams.get("terms") === "1") {
+    await service.auth.admin.updateUserById(user.id, {
+      user_metadata: { ...user.user_metadata, terms_version: LEGAL_VERSION, terms_accepted_at: new Date().toISOString() },
+    });
+  }
   if (inviteToken) {
     const { data: accepted, error } = await service.rpc("accept_invitation", {
       p_profile_id: user.id,

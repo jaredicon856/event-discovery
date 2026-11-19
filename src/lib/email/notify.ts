@@ -7,6 +7,7 @@ if (typeof window !== "undefined") {
 }
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { unsubscribeFor } from "@/lib/email/unsubscribe";
 import {
   creditsToppedUpEmail,
   ownerNewPlanEmail,
@@ -148,13 +149,18 @@ export async function maybeSendTrialCompleteEmail(
     // Speaker Island members' searches refresh monthly; no "trial complete" email.
     if (trial?.source === "speaker_island") return;
 
+    const { data: pref } = await supabase.from("profiles").select("email_opt_out_at").eq("id", profileId).maybeSingle();
+    if (pref?.email_opt_out_at) return;
+
     const billingUrl = `${appOrigin()}/billing#plans`;
-    const template = trialCompleteEmail({ billingUrl });
+    const unsub = unsubscribeFor(profileId);
+    const template = trialCompleteEmail({ billingUrl, unsubscribeUrl: unsub?.url });
     await sendEmail({
       to: email,
       subject: template.subject,
       html: template.html,
       text: template.text,
+      headers: unsub?.headers,
       tags: [
         { name: "category", value: "trial_complete" },
         { name: "profile", value: profileId.replace(/-/g, "") },

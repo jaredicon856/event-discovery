@@ -11,6 +11,7 @@ const PUBLIC_PATHS = [
   "/auth/callback",
   "/privacy",
   "/terms",
+  "/unsubscribe",
 ];
 
 export async function proxy(request: NextRequest) {

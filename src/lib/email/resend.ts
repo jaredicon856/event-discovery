@@ -81,6 +81,8 @@ export type SendEmailInput = {
   tags?: Array<{ name: string; value: string }>;
   /** Extra file attachments (invoice PDFs, etc). Logo CID is always included when available. */
   files?: Array<{ filename: string; content: Buffer }>;
+  /** Extra mail headers, e.g. List-Unsubscribe. */
+  headers?: Record<string, string>;
 };
 
 export async function sendEmail(input: SendEmailInput): Promise<{ id: string }> {
@@ -109,6 +111,7 @@ export async function sendEmail(input: SendEmailInput): Promise<{ id: string }> 
     html: input.html,
     text: input.text,
     tags: input.tags,
+    headers: input.headers,
     attachments: attachments.length > 0 ? attachments : undefined,
   });
 

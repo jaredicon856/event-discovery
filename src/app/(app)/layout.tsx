@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { ImpersonationBanner } from "@/components/ImpersonationBanner";
 import { ScrollToHash } from "@/components/ScrollToHash";
 import { isProfileComplete } from "@/lib/profileCompletion";
+import { ensureTermsAccepted } from "@/lib/consent";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   let context;
@@ -19,6 +20,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   if (!isProfileComplete(context.profile)) {
     redirect("/onboarding");
+  }
+
+  // Owners and "Login as" sessions never accept on a customer's behalf.
+  if (
+    !context.impersonation &&
+    context.profile.role !== "super_admin" &&
+    !(await ensureTermsAccepted(context.service, context.user, context.profile.id))
+  ) {
+    redirect("/accept-terms");
   }
 
   const credits = await getCreditBalance(context.service, context.user.id);

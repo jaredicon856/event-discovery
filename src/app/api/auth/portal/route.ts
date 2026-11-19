@@ -5,6 +5,7 @@ import { isProfileComplete, splitPersonName } from "@/lib/profileCompletion";
 import { monthlyAllowance, verifyPortalToken } from "@/lib/speakerIsland";
 import { appOrigin, sendEmail } from "@/lib/email/resend";
 import { speakerIslandWelcomeEmail } from "@/lib/email/templates";
+import { unsubscribeFor } from "@/lib/email/unsubscribe";
 
 // Sign-in from the Speaker Island Portal's Marketplace. The Portal has already
 // verified the member's email; this links (or creates) their Event Scout
@@ -78,12 +79,14 @@ export async function GET(request: NextRequest) {
   // One welcome email, the first time a member comes through.
   if (!wasMember && !grantError) {
     try {
+      const unsub = unsubscribeFor(profile.id, origin);
       const mail = speakerIslandWelcomeEmail({
         firstName: splitPersonName(payload.name).firstName,
         searches,
         searchUrl: `${appOrigin(origin)}/opportunities?tab=new`,
+        unsubscribeUrl: unsub?.url,
       });
-      await sendEmail({ to: payload.email, ...mail, tags: [{ name: "category", value: "speaker_island_welcome" }] });
+      await sendEmail({ to: payload.email, ...mail, headers: unsub?.headers, tags: [{ name: "category", value: "speaker_island_welcome" }] });
     } catch (e) {
       console.error("speaker island welcome email", e);
     }
