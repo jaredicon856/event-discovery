@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
-import { LEGAL_CONTACT_EMAIL, LEGAL_UPDATED } from "@/lib/legal";
+import { LEGAL_UPDATED } from "@/lib/legal";
+import { legalContactEmail } from "@/lib/legalAddress";
 import { getSupabaseServerClient } from "@/lib/supabaseServer";
 
 export async function LegalPage({ title, intro, children }: { title: string; intro: string; children: React.ReactNode }) {
@@ -68,10 +69,11 @@ export function LegalList({ items }: { items: React.ReactNode[] }) {
 }
 
 export function LegalContact() {
-  if (LEGAL_CONTACT_EMAIL) {
+  const email = legalContactEmail();
+  if (email) {
     return (
-      <a href={`mailto:${LEGAL_CONTACT_EMAIL}`} className="font-medium text-icon-primary hover:underline">
-        {LEGAL_CONTACT_EMAIL}
+      <a href={`mailto:${email}`} className="font-medium text-icon-primary hover:underline">
+        {email}
       </a>
     );
   }
