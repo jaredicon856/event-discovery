@@ -75,8 +75,9 @@ export default function TermsPage() {
       <LegalSection title="6. Speaker Island members">
         <p>
           If you arrive through the Speaker Island Portal, you receive a monthly allowance of free actions, each
-          of which can be a search or a contact lookup. The allowance renews each calendar month. We may change or
-          end this allowance. These terms apply to you as well.
+          of which can be a search or a contact lookup. The allowance renews each calendar month. Credits you buy
+          are separate: they are used after the free allowance and are not limited by it. We may change or end this
+          allowance. These terms apply to you as well.
         </p>
       </LegalSection>
 

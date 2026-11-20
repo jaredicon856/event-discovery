@@ -286,7 +286,9 @@ export function DiscoverPanel({
       {isOwner ? null : trialSearchRemaining !== undefined && (
         <p className="text-xs font-semibold text-icon-primary">
           {speakerIsland
-            ? `Speaker Island: ${trialSearchRemaining} free ${trialSearchRemaining === 1 ? "action" : "actions"} left this month, each a search or a contact lookup.`
+            ? trialSearchRemaining > 0
+              ? `Speaker Island: ${trialSearchRemaining} free ${trialSearchRemaining === 1 ? "action" : "actions"} left this month, each a search or a contact lookup. Credits you buy work on top of these.`
+              : "Speaker Island: this month's free actions are used. Credits you buy still work, and the free ones refresh on the 1st."
             : trialDaysLeft === 0
             ? "Your free trial has expired."
             : `Free trial: ${trialSearchRemaining} opportunity search remaining${trialDaysLeft ? ` · ${trialDaysLeftLabel(trialDaysLeft)}` : ""}.`}
