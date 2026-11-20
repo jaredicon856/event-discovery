@@ -116,8 +116,10 @@ export async function CustomerOverview() {
                     : "Choose a plan to run discovery and contact research."
                   : trial.speakerIsland
                   ? trialComplete
-                    ? "You've used this month's free actions. They refresh at the start of next month, or choose a plan to keep going."
-                    : `${trial.discoveryRemaining} free ${trial.discoveryRemaining === 1 ? "action" : "actions"} left this month from Speaker Island. Each one is a search or a contact lookup.`
+                    ? balances.subscription + balances.rollover + balances.manual >= 20
+                      ? `This month's free actions are used. You're now using your ${(balances.subscription + balances.rollover + balances.manual).toLocaleString()} bought credits; the free ones refresh on the 1st.`
+                      : "You've used this month's free actions. They refresh on the 1st, or buy credits to keep going now."
+                    : `${trial.discoveryRemaining} free ${trial.discoveryRemaining === 1 ? "action" : "actions"} left this month from Speaker Island, each a search or a contact lookup. Credits you buy work on top and are used after the free ones.`
                   : trialComplete
                   ? "Your results remain available. Choose a plan when you are ready to research more."
                   : `${trial.discoveryRemaining} search and ${trial.contactsRemaining} contact lookups remaining · ${trialDaysLeftLabel(trial.daysLeft)}.`}
